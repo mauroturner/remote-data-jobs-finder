@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="662.736875pt" height="288.264063pt" viewBox="0 0 662.736875 288.264063" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.7.1, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 288.264063 
+L 662.736875 288.264063 
+L 662.736875 0 
+L 0 0 
+z
+" style="fill: #fcfcfb"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 120.296875 270.264063 
+L 644.736875 270.264063 
+L 644.736875 37.624062 
+L 120.296875 37.624062 
+z
+" style="fill: #fcfcfb"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 120.296875 259.689517 
+L 281.554112 259.689517 
+L 281.554112 231.30762 
+L 120.296875 231.30762 
+z
+" clip-path="url(#p617309b28d)" style="fill: #2a78d6"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 120.296875 213.912264 
+L 293.353422 213.912264 
+L 293.353422 185.530367 
+L 120.296875 185.530367 
+z
+" clip-path="url(#p617309b28d)" style="fill: #2a78d6"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 120.296875 168.135011 
+L 564.737553 168.135011 
+L 564.737553 139.753114 
+L 120.296875 139.753114 
+z
+" clip-path="url(#p617309b28d)" style="fill: #2a78d6"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 120.296875 122.357758 
+L 356.283076 122.357758 
+L 356.283076 93.975861 
+L 120.296875 93.975861 
+z
+" clip-path="url(#p617309b28d)" style="fill: #2a78d6"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 120.296875 76.580505 
+L 179.293425 76.580505 
+L 179.293425 48.198608 
+L 120.296875 48.198608 
+z
+" clip-path="url(#p617309b28d)" style="fill: #2a78d6"/>
+   </g>
+   <g id="matplotlib.axis_1"/>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_1"/>
+     <g id="text_1">
+      <text style="fill: #0b0b0b; font: 10px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: end" x="116.796875" y="249.200131" transform="rotate(-0 116.796875 249.200131)">Not stated</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_2"/>
+     <g id="text_2">
+      <text style="fill: #0b0b0b; font: 10px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: end" x="116.796875" y="203.476003" transform="rotate(-0 116.796875 203.476003)">Lead / Staff / Manager</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_3"/>
+     <g id="text_3">
+      <text style="fill: #0b0b0b; font: 10px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: end" x="116.796875" y="157.645625" transform="rotate(-0 116.796875 157.645625)">Senior</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_4"/>
+     <g id="text_4">
+      <text style="fill: #0b0b0b; font: 10px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: end" x="116.796875" y="111.868372" transform="rotate(-0 116.796875 111.868372)">Mid</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_5"/>
+     <g id="text_5">
+      <text style="fill: #0b0b0b; font: 10px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: end" x="116.796875" y="66.091119" transform="rotate(-0 116.796875 66.091119)">Junior</text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_8">
+    <path d="M 120.296875 270.264063 
+L 120.296875 37.624062 
+" style="fill: none; stroke: #c3c2b7; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_6">
+    <text style="fill: #52514e; font: 9px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start" x="285.998519" y="247.794975" transform="rotate(-0 285.998519 247.794975)">41  (15%)</text>
+   </g>
+   <g id="text_7">
+    <text style="fill: #52514e; font: 9px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start" x="297.797829" y="202.017722" transform="rotate(-0 297.797829 202.017722)">44  (16%)</text>
+   </g>
+   <g id="text_8">
+    <text style="fill: #52514e; font: 9px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start" x="569.18196" y="156.240469" transform="rotate(-0 569.18196 156.240469)">113  (41%)</text>
+   </g>
+   <g id="text_9">
+    <text style="fill: #52514e; font: 9px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start" x="360.727482" y="110.463216" transform="rotate(-0 360.727482 110.463216)">60  (22%)</text>
+   </g>
+   <g id="text_10">
+    <text style="fill: #52514e; font: 9px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start" x="183.737832" y="64.685963" transform="rotate(-0 183.737832 64.685963)">15  (5%)</text>
+   </g>
+   <g id="text_11">
+    <text style="fill: #0b0b0b; font: 700 13px 'Segoe UI', 'Helvetica Neue', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start" x="120.296875" y="27.624062" transform="rotate(-0 120.296875 27.624062)">Remote data postings by seniority · 273 postings · 2026-11-17</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p617309b28d">
+   <rect x="120.296875" y="37.624062" width="524.44" height="232.64"/>
+  </clipPath>
+ </defs>
+</svg>

@@ -6,11 +6,12 @@ Usage: python -m jobfinder.market [--config config.yaml] [--min-share 0.4]
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 import sys
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -94,7 +95,8 @@ def is_remote(job: Job) -> bool:
 class RoleStats:
     name: str
     count: int
-    skills: list[tuple[str, float]] = field(default_factory=list)  # (skill, share of the role's postings)
+    skills: list[tuple[str, float]] = field(default_factory=list)  # (skill, share) at or above min_share
+    all_skills: list[tuple[str, float]] = field(default_factory=list)  # every mentioned skill, highest share first
 
 
 @dataclass
@@ -127,14 +129,77 @@ def analyze(jobs: list[Job], catalog: dict[str, str], min_share: float = 0.4, ma
         for job in members:
             job.description = strip_html(job.description)
             counts.update(mentioned(job, compiled))
-        skills = [(s, c / len(members)) for s, c in counts.most_common() if c / len(members) >= min_share]
-        roles.append(RoleStats(role, len(members), skills[:max_skills]))
+        shares = [(s, c / len(members)) for s, c in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+        skills = [(s, share) for s, share in shares if share >= min_share]
+        roles.append(RoleStats(role, len(members), skills[:max_skills], shares))
     roles.sort(key=lambda r: (-r.count, r.name))
     return MarketReport(len(unique), dict(by_seniority), roles,
                         {r: dict(c) for r, c in seniority_by_role.items()})
 
 
-def render(report: MarketReport, day: str, min_share: float, min_role_postings: int = 5) -> str:
+def skills_at(role: RoleStats, threshold: float, max_skills: int | None = None) -> list[tuple[str, float]]:
+    """Skills mentioned in at least `threshold` of the role's postings."""
+    kept = [(s, share) for s, share in role.all_skills if share >= threshold]
+    return kept[:max_skills] if max_skills else kept
+
+
+def segmentation(report: MarketReport, thresholds: list[float], min_postings: int = 5) -> list[dict]:
+    """How well each threshold separates roles.
+
+    For roles with at least `min_postings`: average skills kept per role, roles left with no skill, and the mean
+    pairwise Jaccard similarity of the roles' skill sets (lower = roles are more distinct from each other).
+    """
+    roles = [r for r in report.roles if r.count >= min_postings]
+    rows = []
+    for t in thresholds:
+        sets = [{s for s, _ in skills_at(r, t)} for r in roles]
+        pairs = [(a, b) for i, a in enumerate(sets) for b in sets[i + 1:] if a | b]
+        jaccard = sum(len(a & b) / len(a | b) for a, b in pairs) / len(pairs) if pairs else 0.0
+        rows.append({
+            "threshold": t,
+            "roles": len(roles),
+            "avg_skills": sum(map(len, sets)) / len(sets) if sets else 0.0,
+            "roles_without_skills": sum(1 for s in sets if not s),
+            "mean_jaccard": jaccard,
+        })
+    return rows
+
+
+def save_snapshot(report: MarketReport, path: Path, meta: dict) -> None:
+    """Aggregated numbers only (no postings), so charts can be regenerated without fetching again."""
+    data = {"meta": meta, "report": asdict(report)}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+
+
+def load_snapshot(path: Path) -> tuple[MarketReport, dict]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    rep = data["report"]
+    roles = [RoleStats(r["name"], r["count"], [tuple(s) for s in r["skills"]], [tuple(s) for s in r["all_skills"]])
+             for r in rep["roles"]]
+    return MarketReport(rep["total"], rep["by_seniority"], roles, rep["seniority_by_role"]), data["meta"]
+
+
+def _render_thresholds(report: MarketReport, thresholds: list[float], min_postings: int) -> list[str]:
+    lines = ["", "## Skills by threshold", "",
+             "Shared skills per role: a skill is listed when it appears in at least that share of the role's "
+             f"postings (roles with {min_postings}+ postings).", "",
+             "| Threshold | Roles | Avg skills per role | Roles with no skill | Mean overlap between roles (Jaccard) |",
+             "|---|---|---|---|---|"]
+    for row in segmentation(report, thresholds, min_postings):
+        lines.append(f"| {row['threshold']:.0%} | {row['roles']} | {row['avg_skills']:.1f} "
+                     f"| {row['roles_without_skills']} | {row['mean_jaccard']:.2f} |")
+    for t in thresholds:
+        lines += ["", f"### At {t:.0%}", "", "| Role | Postings | Shared skills |", "|---|---|---|"]
+        for role in report.roles:
+            if role.count >= min_postings:
+                kept = ", ".join(f"{s} ({share:.0%})" for s, share in skills_at(role, t)) or "—"
+                lines.append(f"| {role.name} | {role.count} | {kept} |")
+    return lines
+
+
+def render(report: MarketReport, day: str, min_share: float, min_role_postings: int = 5,
+           thresholds: list[float] | None = None) -> str:
     pct = lambda n: f"{n / report.total:.0%}" if report.total else "0%"  # noqa: E731
     lines = [f"# Remote data job market snapshot ({day})", "",
              f"{report.total} remote data postings (deduplicated) from the enabled sources.", "",
@@ -157,6 +222,8 @@ def render(report: MarketReport, day: str, min_share: float, min_role_postings: 
     for role in report.roles:
         row = report.seniority_by_role.get(role.name, {})
         lines.append(f"| {role.name} | " + " | ".join(str(row.get(level, 0)) for level in SENIORITY_ORDER) + " |")
+    if thresholds:
+        lines += _render_thresholds(report, thresholds, min_role_postings)
     return "\n".join(lines) + "\n"
 
 
@@ -166,18 +233,37 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Snapshot of the remote data job market (independent of your profile).")
     parser.add_argument("--config", type=Path, default=Path("config.yaml"), help="only its sources/http are used")
     parser.add_argument("--min-share", type=float, default=0.4, help="minimum share for a skill to be listed")
+    parser.add_argument("--thresholds", default="", help="compare several shares, e.g. 0.4,0.5,0.6")
+    parser.add_argument("--charts", type=Path, help="write SVG charts (light and dark) to this folder")
+    parser.add_argument("--save-snapshot", type=Path, help="save the aggregated numbers as JSON")
+    parser.add_argument("--from-snapshot", type=Path, help="reuse a saved snapshot instead of fetching")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    thresholds = [float(t) for t in args.thresholds.split(",") if t.strip()]
 
     cfg = load_config(args.config)
-    catalog = load_catalog(Path(cfg.get("insights", {}).get("skills_catalog", "skills_catalog.yaml")))
-    report = analyze(collect(cfg), catalog, args.min_share)
+    now = datetime.now()
+    if args.from_snapshot:
+        report, meta = load_snapshot(args.from_snapshot)
+    else:
+        catalog = load_catalog(Path(cfg.get("insights", {}).get("skills_catalog", "skills_catalog.yaml")))
+        report = analyze(collect(cfg), catalog, args.min_share)
+        enabled = {name: {k: v for k, v in opts.items() if k != "enabled"}
+                   for name, opts in (cfg.get("sources") or {}).items() if opts and opts.get("enabled")}
+        meta = {"date": now.date().isoformat(), "sources": enabled}
+    if args.save_snapshot:
+        save_snapshot(report, args.save_snapshot, meta)
+
     out_dir = Path(cfg.get("output", {}).get("dir", "output"))
     out_dir.mkdir(parents=True, exist_ok=True)
-    now = datetime.now()
     path = out_dir / f"market-{now:%Y%m%d-%H%M}.md"
-    path.write_text(render(report, now.date().isoformat(), args.min_share), encoding="utf-8")
+    path.write_text(render(report, meta["date"], args.min_share, thresholds=thresholds), encoding="utf-8")
     log.info("\n%d remote data postings analyzed. Report: %s", report.total, path)
+    if args.charts:
+        from .market_charts import render_charts
+
+        for chart in render_charts(report, args.charts, thresholds or [args.min_share], meta["date"]):
+            log.info("  chart: %s", chart)
     return 0
 
 

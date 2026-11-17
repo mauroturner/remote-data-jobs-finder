@@ -186,6 +186,7 @@ python -m jobfinder --config other.yaml     # use another config file
 python -m jobfinder -v                      # verbose logging
 python -m jobfinder.market                  # market snapshot (independent of your profile)
 python -m jobfinder.market --min-share 0.6  # only list skills present in 60%+ of a role's postings
+python -m jobfinder.market --thresholds 0.4,0.5,0.6 --charts docs/market   # compare thresholds + SVG charts
 ```
 
 On Windows, if accented characters look broken in the console, run
@@ -364,66 +365,152 @@ for. Use it to see where the market is and which skills each role expects.
 boards and the companies in your config, and it changes week to week. Skill detection is keyword-based, so a skill a
 posting implies but does not name is not counted.
 
-### Snapshot: 2026-11-17
+### Snapshot: 17 Nov 2026 (2026-11-17)
 
-276 remote data postings (deduplicated) from the default sources.
+**273 remote data postings** (deduplicated), collected on 2026-11-17. The aggregated numbers are saved in
+[`docs/market/snapshot-2026-11-17.json`](docs/market/snapshot-2026-11-17.json) (no postings, only counts and shares),
+so the charts can be regenerated without fetching again.
 
-**Remote data postings by seniority**
+**Sources and search criteria**
+
+| Source | What was queried |
+|---|---|
+| Remotive | categories `data`, `artificial-intelligence` |
+| Jobicy | industry `data-science`; regions: any, `latam`, `argentina` |
+| Himalayas | searches: data analyst, data scientist, data engineer, machine learning, analytics engineer, business intelligence (3 pages each) |
+| RemoteOK | tags `data`, `analyst`, `machine-learning` |
+| Get on Board | categories `data-science-analytics`, `machine-learning-ai` (3 pages each) |
+| Greenhouse | GitLab, Wizeline, Canonical, Grafana Labs |
+| Lever | Toptal, Mutt Data, Despegar |
+| Ashby | Supabase, PostHog, n8n, Airbyte |
+| Workable | Platzi |
+
+Criteria applied to every posting:
+
+- **Remote**: marked remote by the source, or "remote/anywhere/worldwide" in its location (country-restricted remote
+  included).
+- **Data role**: the title maps to one of the role families below; sales, product, data-labeling and data-center
+  titles are excluded.
+- **Deduplicated** across sources and queries by normalized company and title.
+- **Skills**: the 127 skills of [`skills_catalog.yaml`](skills_catalog.yaml), matched as keywords in title and
+  description.
+- **Shared skill**: a skill counts for a role when it appears in at least *X%* of that role's postings. Roles with
+  fewer than 5 postings are not detailed (Data Architect, Data Governance and "other" had 1 to 4).
+- Machine Learning and MLOps titles are grouped as **ML Engineer / MLOps**: MLOps-only titles were too few to stand
+  alone.
+
+#### Postings by seniority
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/market/seniority-dark.svg">
+  <img alt="Remote data postings by seniority: Junior 15 (5%), Mid 60 (22%), Senior 113 (41%), Lead/Staff/Manager 44 (16%), Not stated 41 (15%)" src="docs/market/seniority-light.svg">
+</picture>
 
 | Seniority | Postings | Share |
 |---|---|---|
 | Junior | 15 | 5% |
 | Mid | 60 | 22% |
-| Senior | 116 | 42% |
+| Senior | 113 | 41% |
 | Lead / Staff / Manager | 44 | 16% |
 | Not stated | 41 | 15% |
 
-Senior roles dominate (42%), and only 1 in 20 remote data postings is explicitly junior. Mid-level ("Semi Senior",
-"II") is the second largest group.
+Senior roles dominate (41%); only 1 in 20 remote data postings is explicitly junior.
 
-**Data roles and their most requested skills**
+#### Which threshold segments skills best: 40%, 50% or 60%?
 
-Skills mentioned in at least 30% of each role's postings; those in **60% or more** are in bold. Roles with fewer than
-five postings are omitted.
+Each threshold was applied to the same 273 postings. A good threshold leaves every role with a short list of skills
+(3 to 6) that is **its own**, not the same list for every role.
 
-| Role | Postings | Most requested skills |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/market/skills-per-threshold-dark.svg">
+  <img alt="Number of shared skills kept per role at 40%, 50% and 60%" src="docs/market/skills-per-threshold-light.svg">
+</picture>
+
+| Threshold | Avg shared skills per role | Roles left with no skill | Overlap between roles (mean Jaccard) |
+|---|---|---|---|
+| **40%** | **4.9** | **0** | **0.24** |
+| 50% | 3.0 | 0 | 0.28 |
+| 60% | 2.1 | 1 (Data Analyst) | 0.17 |
+
+- **60%** has the lowest overlap only because the lists shrink to 1 or 2 skills (Python, SQL): Data Analyst keeps
+  nothing, and Data Engineer and BI keep a single skill. Too strict to describe a role.
+- **50%** collapses Data Analyst and BI to just *SQL*, so it cannot tell them apart, and overlap goes up (0.28).
+- **40%** gives every role 2 to 5 skills (AI / LLM Engineer: 12), none empty, with less overlap than 50%. **It is the
+  threshold that segments best**, and the default of `python -m jobfinder.market`.
+
+#### Shared skills by role
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/market/skills-by-role-dark.svg">
+  <img alt="Top 10 skills per data role with their share of postings; thresholds 40%, 50% and 60% marked" src="docs/market/skills-by-role-light.svg">
+</picture>
+
+Bars are colored by band: **≥ 60%** darkest, 50–60% medium, 40–50% light, below 40% gray.
+
+At **40%** (recommended):
+
+| Role | Postings | Shared skills (share of the role's postings) |
 |---|---|---|
-| Data Scientist | 66 | **Machine learning (76%)**, **Python (68%)**, **Statistics (61%)**, SQL (53%), A/B testing (33%) |
-| Data Engineer | 53 | **Python (64%)**, SQL (57%), AWS (45%), dbt (38%), Apache Spark (38%), GCP (36%), Azure (36%), Data quality / governance (36%) |
-| Data Analyst | 52 | SQL (58%), Data quality / governance (44%), Python (40%), Excel (38%), Statistics (38%), Power BI (33%), Tableau (33%) |
-| ML Engineer / MLOps | 29 | **Machine learning (93%)**, **Python (72%)**, AWS (34%), PyTorch (34%), MLOps (31%), SQL (31%), LLM (31%) |
-| Analytics Engineer | 26 | **SQL (81%)**, **Python (73%)**, dbt (58%), Data modeling (54%), Data quality / governance (42%), Tableau (35%), Looker (31%), Snowflake (31%) |
-| BI Analyst / Developer | 24 | **SQL (67%)**, Power BI (46%), Tableau (42%), Data modeling (42%), Data quality / governance (42%), Python (33%) |
-| AI / LLM Engineer | 20 | **LLM (80%)**, **RAG (75%)**, **Python (70%)**, **AI agents (70%)**, **LangChain (65%)**, **LLM provider APIs (60%)**, Observability (55%), MCP (45%) |
+| Data Scientist | 65 | Machine learning (77%), Python (68%), Statistics (62%), SQL (54%) |
+| Data Analyst | 52 | SQL (58%), Data quality / governance (44%), Python (40%) |
+| Data Engineer | 52 | Python (62%), SQL (56%), AWS (42%) |
+| ML Engineer / MLOps | 28 | Machine learning (96%), Python (71%) |
+| Analytics Engineer | 26 | SQL (81%), Python (73%), dbt (58%), Data modeling (54%), Data quality / governance (42%) |
+| BI Analyst / Developer | 24 | SQL (67%), Power BI (46%), Data modeling (42%), Data quality / governance (42%), Tableau (42%) |
+| AI / LLM Engineer | 20 | LLM (80%), RAG (75%), AI agents (70%), Python (70%), LangChain (65%), LLM provider APIs (60%), Observability (55%), CI/CD (45%), MCP (45%), TypeScript/JavaScript (45%), Azure (40%), GCP (40%) |
 
-In short:
+<details>
+<summary>At 50% and 60%</summary>
 
-- **Data Analyst:** SQL, Python, Excel, Power BI / Tableau, statistics.
+| Role | At 50% | At 60% |
+|---|---|---|
+| Data Scientist | Machine learning, Python, Statistics, SQL | Machine learning, Python, Statistics |
+| Data Analyst | SQL | — |
+| Data Engineer | Python, SQL | Python |
+| ML Engineer / MLOps | Machine learning, Python | Machine learning, Python |
+| Analytics Engineer | SQL, Python, dbt, Data modeling | SQL, Python |
+| BI Analyst / Developer | SQL | SQL |
+| AI / LLM Engineer | LLM, RAG, AI agents, Python, LangChain, LLM provider APIs, Observability | LLM, RAG, AI agents, Python, LangChain, LLM provider APIs |
+
+</details>
+
+In one line per role (40%):
+
+- **Data Analyst:** SQL, data quality, Python (then Excel and statistics at 38%, Power BI and Tableau at 33%).
+- **BI Analyst / Developer:** SQL, Power BI, Tableau, data modeling, data quality.
+- **Data Engineer:** Python, SQL, AWS (then Spark and Databricks at 38%, Azure and GCP at 37%).
+- **Analytics Engineer:** SQL, Python, dbt, data modeling, data quality.
 - **Data Scientist:** machine learning, Python, statistics, SQL.
-- **Data Engineer:** Python, SQL, a cloud (AWS, GCP or Azure), dbt, Spark.
-- **Analytics Engineer:** SQL, Python, dbt, data modeling.
-- **BI Analyst / Developer:** SQL, Power BI or Tableau, data modeling.
-- **ML Engineer / MLOps:** machine learning, Python, a cloud, PyTorch, MLOps.
-- **AI / LLM Engineer:** LLMs, RAG, Python, AI agents, LangChain, LLM provider APIs. The most demanding and most
-  uniform skill set, and no junior or mid openings in this snapshot.
+- **ML Engineer / MLOps:** machine learning, Python (then AWS and PyTorch at 36%, MLOps at 32%).
+- **AI / LLM Engineer:** LLMs, RAG, AI agents, Python, LangChain, LLM provider APIs: the most specific and most
+  demanding profile, with no junior or mid openings in this snapshot.
 
-Only AI / LLM Engineer has several skills above 60%; the other roles ask for a broader mix, so their lists use the
-30% threshold to stay useful. Refresh the snapshot with `python -m jobfinder.market --min-share 0.3`.
-
-**Seniority by role**
+#### Seniority by role
 
 | Role | Junior | Mid | Senior | Lead / Staff / Manager | Not stated |
 |---|---|---|---|---|---|
-| Data Scientist | 4 | 14 | 29 | 8 | 11 |
-| Data Engineer | 0 | 14 | 25 | 9 | 5 |
+| Data Scientist | 4 | 14 | 28 | 8 | 11 |
 | Data Analyst | 8 | 8 | 10 | 9 | 17 |
-| ML Engineer / MLOps | 1 | 6 | 14 | 5 | 3 |
+| Data Engineer | 0 | 14 | 24 | 9 | 5 |
+| ML Engineer / MLOps | 1 | 6 | 13 | 5 | 3 |
 | Analytics Engineer | 0 | 4 | 18 | 3 | 1 |
 | BI Analyst / Developer | 2 | 14 | 2 | 4 | 2 |
 | AI / LLM Engineer | 0 | 0 | 15 | 3 | 2 |
 
 Data Analyst and BI are the most accessible families below senior level; Analytics Engineer and AI / LLM Engineer
 are almost entirely senior.
+
+#### Reproduce or refresh
+
+```bash
+pip install matplotlib   # only needed for --charts
+python -m jobfinder.market --thresholds 0.4,0.5,0.6 \
+  --save-snapshot docs/market/snapshot-<date>.json --charts docs/market
+# Regenerate the charts from a saved snapshot, without fetching:
+python -m jobfinder.market --from-snapshot docs/market/snapshot-2026-11-17.json --thresholds 0.4,0.5,0.6 --charts docs/market
+```
+
+Numbers change with every run: sources add and remove postings daily.
 
 ## Sources
 
@@ -631,6 +718,7 @@ job-finder/
 │   ├── scoring.py       # pure filtering and scoring rules (all reasons, near misses)
 │   ├── insights.py      # skill gaps, missing skills per posting, new-since-last-run tracking
 │   ├── market.py        # remote data market snapshot (python -m jobfinder.market)
+│   ├── market_charts.py # SVG charts for the snapshot, light and dark (needs matplotlib)
 │   ├── resume.py        # resume -> Markdown with MarkItDown
 │   ├── cli.py           # orchestration and report writing
 │   └── __main__.py      # python -m jobfinder
@@ -641,6 +729,7 @@ job-finder/
 │   ├── test_insights.py # near misses, skill gaps, new postings, report sections
 │   ├── test_market.py   # role/seniority classification, market snapshot, missing skills
 │   └── test_dedup.py    # duplicate detection across sources
+├── docs/market/         # published market snapshot: aggregated JSON + SVG charts
 ├── skills_catalog.yaml  # generic skill catalog for skill-gap analysis
 ├── config.example.yaml  # committed template, no personal data
 ├── config.yaml          # YOUR profile (git-ignored)
