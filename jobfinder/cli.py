@@ -11,6 +11,7 @@ from pathlib import Path
 
 import yaml
 
+from .insights import SkillGap, mark_new, skill_gaps
 from .models import Job
 from .scoring import evaluate
 from .sources import SOURCES, Http
@@ -62,7 +63,12 @@ def _salary(job: Job) -> str:
     return f"{job.monthly_usd_min:,.0f}-{job.monthly_usd_max:,.0f}"
 
 
-def write_reports(kept: list[Job], rejected: Counter, out_dir: Path, top_n: int) -> tuple[Path, Path]:
+def _cell(value: object) -> str:
+    return str(value).replace("|", "/")[:60]
+
+
+def write_reports(kept: list[Job], near: list[Job], gaps: list[SkillGap], eligible_count: int,
+                  rejected: Counter, out_dir: Path, top_n: int) -> tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     csv_path, md_path = out_dir / f"jobs-{stamp}.csv", out_dir / f"jobs-{stamp}.md"
@@ -74,15 +80,47 @@ def write_reports(kept: list[Job], rejected: Counter, out_dir: Path, top_n: int)
             writer.writerow([j.score, j.title, j.company, j.location, _salary(j), " ".join(j.flags),
                              ", ".join(j.matched_skills), j.source,
                              j.published_at.date().isoformat() if j.published_at else "", j.url])
-    lines = [f"# Job matches {stamp}", "", f"{len(kept)} matches. Top {min(top_n, len(kept))}:", "",
+
+    new_count = sum(j.is_new for j in kept)
+    lines = [f"# Job matches {stamp}", "",
+             f"{len(kept)} matches ({new_count} new since the last run). Top {min(top_n, len(kept))}:", "",
              "| Score | Role | Company | Location | USD/month | Flags | URL |", "|---|---|---|---|---|---|---|"]
     for j in kept[:top_n]:
-        cell = lambda s: str(s).replace("|", "/")[:60]  # noqa: E731
-        lines.append(f"| {j.score} | {cell(j.title)} | {cell(j.company)} | {cell(j.location)} | {_salary(j)} "
+        lines.append(f"| {j.score} | {_cell(j.title)} | {_cell(j.company)} | {_cell(j.location)} | {_salary(j)} "
                      f"| {' '.join(j.flags)} | {j.url} |")
+
+    lines += ["", "## Near misses", "",
+              "Postings that failed a single soft filter by a small margin. Worth a look: the blocker may be "
+              "negotiable.", ""]
+    if near:
+        lines += ["| Score | Role | Company | Location | USD/month | Blocked by | New | URL |",
+                  "|---|---|---|---|---|---|---|---|"]
+        for j in near:
+            lines.append(f"| {j.score} | {_cell(j.title)} | {_cell(j.company)} | {_cell(j.location)} "
+                         f"| {_salary(j)} | {_cell(j.reject_reason)} | {'yes' if j.is_new else ''} | {j.url} |")
+    else:
+        lines.append("None this run.")
+
+    lines += ["", "## Skill gaps", "",
+              f"Skills requested by the {eligible_count} eligible data postings (data role, eligible location, any "
+              "seniority) that are not in your profile, most demanded first.", ""]
+    if gaps:
+        lines += ["| Skill | Postings | Share |", "|---|---|---|"]
+        lines += [f"| {g.skill} | {g.count} | {g.share:.0%} |" for g in gaps]
+    else:
+        lines.append("No gaps found (or no skills catalog configured).")
+
     lines += ["", "## Rejected by reason", ""] + [f"- {r}: {n}" for r, n in rejected.most_common(15)]
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return csv_path, md_path
+
+
+def load_catalog(path: Path) -> dict[str, str]:
+    if not path.exists():
+        log.warning("skills catalog not found: %s (skill gaps skipped)", path)
+        return {}
+    with path.open(encoding="utf-8") as fh:
+        return (yaml.safe_load(fh) or {}).get("skills", {})
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -93,14 +131,30 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(message)s")
 
     cfg = load_config(args.config)
+    out = cfg.get("output", {})
+    ins = cfg.get("insights", {})
+    out_dir = Path(out.get("dir", "output"))
+
     raw = collect(cfg)
     evaluated = [evaluate(j, cfg) for j in raw]
-    kept = sorted(dedupe([j for j in evaluated if not j.reject_reason]), key=lambda j: j.score, reverse=True)
-    min_score = cfg.get("output", {}).get("min_score", 0)
-    kept = [j for j in kept if j.score >= min_score]
+    min_score = out.get("min_score", 0)
+    by_score = lambda jobs: sorted(dedupe(jobs), key=lambda j: j.score, reverse=True)  # noqa: E731
+    kept = [j for j in by_score([j for j in evaluated if not j.reject_reason]) if j.score >= min_score]
+    near = by_score([j for j in evaluated if j.near_miss])[: ins.get("near_miss_top_n", 15)]
     rejected = Counter(j.reject_reason.split(" (")[0] for j in evaluated if j.reject_reason)
 
-    out = cfg.get("output", {})
-    csv_path, md_path = write_reports(kept, rejected, Path(out.get("dir", "output")), out.get("top_n", 40))
-    log.info("\n%d fetched, %d kept. Reports:\n  %s\n  %s", len(raw), len(kept), csv_path, md_path)
+    catalog = load_catalog(Path(ins.get("skills_catalog", "skills_catalog.yaml")))
+    gaps = skill_gaps(evaluated, catalog, cfg["profile"]["skills"], ins.get("gaps_min_count", 2))
+    gaps = gaps[: ins.get("gaps_top_n", 15)]
+    eligible_count = len({j.dedup_key for j in evaluated if j.eligible})
+
+    if ins.get("track_new", True):
+        mark_new(kept + near, out_dir / "seen.json", retention_days=ins.get("new_retention_days", 120))
+        for j in kept:
+            if j.is_new:
+                j.flags.insert(0, "new")
+
+    csv_path, md_path = write_reports(kept, near, gaps, eligible_count, rejected, out_dir, out.get("top_n", 40))
+    log.info("\n%d fetched, %d kept (%d new), %d near misses, %d skill gaps. Reports:\n  %s\n  %s",
+             len(raw), len(kept), sum(j.is_new for j in kept), len(near), len(gaps), csv_path, md_path)
     return 0

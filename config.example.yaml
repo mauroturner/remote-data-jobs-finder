@@ -33,6 +33,19 @@ filters:
     english_demanding: ['native english', 'fluent (in )?english', '\bC1\b', '\bC2\b']
     reject_english_demanding: false   # true = drop instead of penalize
 
+near_miss:   # postings that fail ONE soft filter by a small margin are listed separately
+  max_extra_years: 2            # requiring up to max_years_required + this many years
+  salary_tolerance: 0.15        # salary up to 15% below min_monthly_usd
+  include_senior_titles: true   # plain "Senior"/"Sr." titles (never lead/staff/principal/manager)
+
+insights:
+  skills_catalog: skills_catalog.yaml   # generic skill list used to compute skill gaps
+  gaps_top_n: 15
+  gaps_min_count: 2             # ignore skills mentioned by fewer postings
+  near_miss_top_n: 15
+  track_new: true               # flag postings not seen in previous runs (stored in <output.dir>/seen.json)
+  new_retention_days: 120
+
 scoring:   # relative weights
   skills: 40
   seniority: 15

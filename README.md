@@ -146,6 +146,8 @@ expressions.
 | `scoring` | Relative weight of each scoring dimension | `skills: 40` |
 | `sources` | Which sources are enabled and their parameters (categories, company slugs...) | `greenhouse: {companies: [gitlab]}` |
 | `output` | Report folder, how many rows in the Markdown report, minimum score | `top_n: 40` |
+| `near_miss` | How close a posting must be to count as a near miss | `max_extra_years: 2` |
+| `insights` | Skills catalog path, how many near misses and gaps to show, new-posting tracking | `gaps_top_n: 15` |
 
 Tips:
 
@@ -190,14 +192,21 @@ On Windows, if accented characters look broken in the console, run
   ```
 
 - **Reports** in `output/`:
-  - `jobs-<date>.md`: the top matches as a table (score, role, company, location, USD/month, flags, link)
-    and a breakdown of rejection reasons.
+  - `jobs-<date>.md` with four sections:
+    1. **Matches**: the top postings as a table (score, role, company, location, USD/month, flags, link).
+    2. **Near misses**: postings that failed a single *soft* filter by a small margin, with the blocker. See
+       [Near misses](#near-misses).
+    3. **Skill gaps**: skills that eligible postings ask for and your profile does not list. See
+       [Skill gaps](#skill-gaps).
+    4. **Rejected by reason**: how many postings each filter removed.
   - `jobs-<date>.csv`: every kept posting with matched skills, source and publication date. Opens in Excel
     (UTF-8 with BOM).
+  - `seen.json`: postings seen in previous runs, used to flag new ones (see `insights.track_new`).
 - **Flags** in the report:
 
   | Flag | Meaning |
   |---|---|
+  | `new` | Not seen in previous runs (kept for `insights.new_retention_days` days) |
   | `latam-friendly` | Location explicitly names one of your preferred regions |
   | `junior/mid` | Title or source level matches an accepted seniority |
   | `spanish` | Posting is written in Spanish |
@@ -212,16 +221,20 @@ On Windows, if accented characters look broken in the console, run
 
 ## How a posting is scored
 
-Postings go through the filters in this order; the first one that fails rejects the posting:
+Every posting goes through all the filters below. A posting is a match only if it fails none; the first failure is
+the one counted in "Rejected by reason". Filters are *hard* (the posting can never fit) or *soft* (it may be
+negotiable):
 
-1. Data role (`title_include` / `title_exclude`).
-2. Seniority (`reject_title`, `reject_hint`, `max_years_required`).
-3. Location (remote, allowed regions, blocked phrases).
-4. Freshness (`max_age_days`).
-5. Salary floor (only if a salary is published).
-6. Language (only rejects if `reject_english_demanding: true`).
+| # | Filter | Config | Type |
+|---|---|---|---|
+| 1 | Data role | `title_include` / `title_exclude` | hard (non-data roles are discarded right away) |
+| 2 | Seniority | `reject_title`, `reject_hint`, `max_years_required` | soft for a plain "Senior"/"Sr." and for a few extra years; hard for lead/staff/principal/manager... |
+| 3 | Location | remote, allowed regions, blocked phrases | hard |
+| 4 | Freshness | `max_age_days` | hard |
+| 5 | Salary floor | `min_monthly_usd` (only if a salary is published) | soft when close to the floor |
+| 6 | Language | `reject_english_demanding` | soft |
 
-Survivors get a score from 0 to 100:
+Every data role gets a score from 0 to 100 (so near misses can be ranked too):
 
 | Dimension | Full points when | Partial points when |
 |---|---|---|
@@ -233,6 +246,34 @@ Survivors get a score from 0 to 100:
 
 Duplicates (same company and title from different sources) are merged, keeping the best score.
 Postings below `output.min_score` are not shown.
+
+### Near misses
+
+A near miss failed **exactly one soft filter, by a small margin**, and no hard filter:
+
+| Blocker | Counts as near miss when | Config (`near_miss`) |
+|---|---|---|
+| Plain "Senior" / "Sr." title, or source level "Senior" | always (never lead, staff, principal, manager...) | `include_senior_titles` |
+| Years of experience required | up to `max_years_required` + `max_extra_years` | `max_extra_years` (default 2) |
+| Salary below the floor | at least `min_monthly_usd` × (1 − `salary_tolerance`) | `salary_tolerance` (default 0.15) |
+| Advanced English (if you chose to reject it) | always | — |
+
+The top `insights.near_miss_top_n` are listed by score. They are worth reading: "5+ years" with 4.5 years of
+experience, or a "Senior" title at a LATAM company, is often negotiable.
+
+### Skill gaps
+
+[`skills_catalog.yaml`](skills_catalog.yaml) is a generic catalog of ~130 data, ML, GenAI, cloud and BI skills. It
+was written by hand and then extended with the most frequent tools found in ~435 scraped data postings. For every
+**eligible** posting (data role, eligible location, any seniority, deduplicated), the tool checks which catalog skills
+it mentions, keeps those that are **not** covered by your `profile.skills`, and ranks them by how many postings ask
+for them.
+
+- A catalog skill is covered when one of your `profile.skills` keys matches its name (for example the key `llms?`
+  covers `LLM`).
+- A gap can mean you lack the skill **or** that your profile forgot it. If a "gap" is on your resume, add it to
+  `profile.skills`.
+- Tune it with `insights.gaps_top_n` and `insights.gaps_min_count`, or extend the catalog with the tools of your niche.
 
 ## Sources
 
@@ -393,7 +434,7 @@ Everything derived from you stays local. `.gitignore` excludes:
 | `your-resume/*` (except its README) | Your resume and the generated `resume.md` |
 | `config.yaml`, `config.*.yaml` (except the example), `*.local.yaml` | Your skills, salary, seniority and location criteria |
 | `.env`, `.env.*` | Any future secrets |
-| `output/`, `*.csv` | Reports are job lists built from your profile |
+| `output/`, `*.csv` | Reports and `seen.json` are built from your profile and search history |
 | `*.pdf`, `*.doc`, `*.docx`, `cv/`, `resume/` | CVs and personal documents |
 
 Before your first commit, check it with:
@@ -437,13 +478,17 @@ job-finder/
 ├── jobfinder/
 │   ├── models.py        # Job dataclass
 │   ├── sources.py       # one fetcher per source (read-only HTTP)
-│   ├── scoring.py       # pure filtering and scoring rules
+│   ├── scoring.py       # pure filtering and scoring rules (all reasons, near misses)
+│   ├── insights.py      # skill gaps and new-since-last-run tracking
 │   ├── resume.py        # resume -> Markdown with MarkItDown
 │   ├── cli.py           # orchestration and report writing
 │   └── __main__.py      # python -m jobfinder
 ├── tests/
 │   ├── test_scoring.py  # unit tests for the rules
-│   └── test_resume.py   # resume conversion tests
+│   ├── test_resume.py   # resume conversion tests
+│   ├── test_sources.py  # source mapping tests
+│   └── test_insights.py # near misses, skill gaps, new postings, report sections
+├── skills_catalog.yaml  # generic skill catalog for skill-gap analysis
 ├── config.example.yaml  # committed template, no personal data
 ├── config.yaml          # YOUR profile (git-ignored)
 ├── output/              # generated reports (git-ignored)
@@ -458,5 +503,6 @@ python -m pytest
 ```
 
 The tests cover salary parsing and normalization, seniority rules (including "Semi Senior"), location
-restrictions, years of experience, language detection, freshness and resume conversion. They use
+restrictions, years of experience, language detection, freshness, near misses, skill gaps, new-posting tracking,
+report sections, source mapping and resume conversion. They use
 `config.example.yaml` and temporary folders, so they never depend on your private config or resume.

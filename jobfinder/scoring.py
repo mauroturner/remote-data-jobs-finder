@@ -145,79 +145,93 @@ def is_too_old(job: Job, max_age_days: int | None, now: datetime | None = None) 
     return (now - published).days > max_age_days
 
 
+_PLAIN_SENIOR_RE = re.compile(r"^\s*(senior|sr\.?)\b", re.IGNORECASE)
+
+
+def _search(patterns: list[str], text: str) -> tuple[str, str] | None:
+    """Return (pattern, matched text) for the first matching pattern."""
+    for pattern in patterns:
+        if m := re.search(pattern, text, re.IGNORECASE):
+            return pattern, m.group(0)
+    return None
+
+
 def evaluate(job: Job, cfg: dict[str, Any], now: datetime | None = None) -> Job:
-    """Fill score/flags/reject_reason on the job. A non-empty reject_reason means filtered out."""
+    """Score the job and record every failed filter.
+
+    `reject_reason` is the first failed filter (empty for a match), `reasons` lists all of them, and
+    `near_miss` marks postings that failed a single soft filter by a small margin.
+    """
     filters = cfg["filters"]
+    near = cfg.get("near_miss", {})
     title = job.title or ""
     desc = job.description = strip_html(job.description)
     location = (job.location or "").strip()
     flags: list[str] = []
+    failed: list[tuple[str, bool]] = []  # (reason, is_soft)
 
-    # 1. Domain: must be a data role.
+    def fail(reason: str, soft: bool = False) -> None:
+        failed.append((reason, soft))
+
+    # 1. Domain: must be a data role. Nothing else matters otherwise.
     if not _any_match(filters["title_include"], title):
-        job.reject_reason = "not a data role"
-        return job
+        return _finish(job, [("not a data role", False)])
     if hit := _any_match(filters.get("title_exclude", []), title):
-        job.reject_reason = f"title excluded ({hit})"
-        return job
+        return _finish(job, [(f"title excluded ({hit})", False)])
 
-    # 2. Seniority.
+    # 2. Seniority. A plain "Senior" (not lead/staff/manager...) or a few extra years is a soft failure.
     sen = filters["seniority"]
-    if hit := _any_match(sen["reject_title"], title):
-        job.reject_reason = f"seniority in title ({hit})"
-        return job
-    if job.seniority_hint and _any_match(sen.get("reject_hint", []), job.seniority_hint):
-        job.reject_reason = f"seniority from source ({job.seniority_hint})"
-        return job
+    soft_senior = near.get("include_senior_titles", True)
+    if found := _search(sen["reject_title"], title):
+        fail(f"seniority in title ({found[1]})", soft_senior and bool(_PLAIN_SENIOR_RE.match(found[1])))
+    elif job.seniority_hint and _any_match(sen.get("reject_hint", []), job.seniority_hint):
+        fail(f"seniority from source ({job.seniority_hint})",
+             soft_senior and bool(_PLAIN_SENIOR_RE.match(job.seniority_hint)))
     years = required_years(desc)
     if years is not None and years > sen["max_years_required"]:
-        job.reject_reason = f"requires {years}+ years"
-        return job
+        fail(f"requires {years}+ years", years <= sen["max_years_required"] + near.get("max_extra_years", 2))
     seniority_fit = bool(
         _any_match(sen["accept"], title) or (job.seniority_hint and _any_match(sen["accept"], job.seniority_hint))
     )
 
-    # 3. Location / remote.
+    # 3. Location / remote (hard).
     loc = filters["location"]
-    if loc.get("require_remote", True) and job.remote is False:
-        job.reject_reason = "not remote"
-        return job
-    blob = f"{location} {desc}"
     region_ok = _any_match(loc["allowed"], location)
-    if hit := _any_match(loc["blocked_phrases"], blob):
-        if not region_ok:
-            job.reject_reason = f"location restricted ({hit})"
-            return job
-    if location and not region_ok and not _any_match(loc.get("neutral", []), location):
-        job.reject_reason = f"location not eligible ({location[:60]})"
-        return job
+    blocked = _any_match(loc["blocked_phrases"], f"{location} {desc}")
+    if loc.get("require_remote", True) and job.remote is False:
+        fail("not remote")
+    elif blocked and not region_ok:
+        fail(f"location restricted ({blocked})")
+    elif location and not region_ok and not _any_match(loc.get("neutral", []), location):
+        fail(f"location not eligible ({location[:60]})")
+    # Eligible = a data role you could legally take; used for skill-demand statistics.
+    job.eligible = not any(r.startswith(("not remote", "location")) for r, _ in failed)
     if region_ok and _any_match(loc.get("preferred", []), location):
         flags.append("latam-friendly")
 
-    # 4. Freshness.
+    # 4. Freshness (hard).
     if is_too_old(job, filters.get("max_age_days"), now):
-        job.reject_reason = "too old"
-        return job
+        fail("too old")
 
-    # 5. Salary.
+    # 5. Salary. Slightly below the floor is a soft failure.
     sal = filters["salary"]
     job.monthly_usd_min, job.monthly_usd_max = monthly_range(job, sal)
     salary_points = 0.0
     if job.monthly_usd_max is None:
         if not sal.get("keep_unknown", True):
-            job.reject_reason = "salary unknown"
-            return job
+            fail("salary unknown", True)
         flags.append("salary-unknown")
         salary_points = 0.5
     elif job.monthly_usd_max < sal["min_monthly_usd"]:
-        job.reject_reason = f"salary below floor (~{job.monthly_usd_max:,.0f} USD/month)"
-        return job
+        tolerance = near.get("salary_tolerance", 0.15)
+        fail(f"salary below floor (~{job.monthly_usd_max:,.0f} USD/month)",
+             job.monthly_usd_max >= sal["min_monthly_usd"] * (1 - tolerance))
     else:
         salary_points = 1.0
         if job.monthly_usd_max > sal["target_max_monthly_usd"]:
             flags.append("ask-for-more")
 
-    # 6. Language.
+    # 6. Language (soft).
     lang = filters["language"]
     spanish = looks_spanish(job)
     demanding = _any_match(lang["english_demanding"], desc)
@@ -226,14 +240,13 @@ def evaluate(job: Job, cfg: dict[str, Any], now: datetime | None = None) -> Job:
         language_points = 1.0
     elif demanding:
         if lang.get("reject_english_demanding", False):
-            job.reject_reason = "requires advanced English"
-            return job
+            fail("requires advanced English", True)
         flags.append("english-demanding")
         language_points = 0.2
     else:
         language_points = 0.7
 
-    # 7. Profile match.
+    # 7. Profile match. Computed for every data role so near misses can be ranked too.
     skills: dict[str, float] = cfg["profile"]["skills"]
     text = f"{title} {desc}"
     # Skill keys are regex fragments (e.g. 'llms?'), matched on word boundaries.
@@ -260,4 +273,11 @@ def evaluate(job: Job, cfg: dict[str, Any], now: datetime | None = None) -> Job:
         flags.append("junior/mid")
     job.flags = flags
     job.matched_skills = matched
+    return _finish(job, failed)
+
+
+def _finish(job: Job, failed: list[tuple[str, bool]]) -> Job:
+    job.reasons = [reason for reason, _ in failed]
+    job.reject_reason = job.reasons[0] if job.reasons else ""
+    job.near_miss = len(failed) == 1 and failed[0][1]
     return job

@@ -30,7 +30,11 @@ class Job:
     monthly_usd_max: float | None = None
     flags: list[str] = field(default_factory=list)
     matched_skills: list[str] = field(default_factory=list)
-    reject_reason: str = ""
+    reject_reason: str = ""  # first failed filter; empty means the posting is a match
+    reasons: list[str] = field(default_factory=list)  # every failed filter, in evaluation order
+    near_miss: bool = False  # failed exactly one soft filter by a small margin
+    eligible: bool = False  # data role in an eligible location (used for skill-gap statistics)
+    is_new: bool = False  # not seen in previous runs
 
     @property
     def dedup_key(self) -> tuple[str, str]:

@@ -1,0 +1,145 @@
+# Generic catalog of data/ML skills used to detect skill gaps (no personal data: safe to commit).
+# Curated by hand and extended with the most frequent tools found in ~435 scraped data postings (Nov 2026).
+# name -> case-insensitive regex, matched on word boundaries against posting title + description.
+# A skill counts as "covered" when one of your profile.skills keys matches its name (or the other way round).
+
+skills:
+  # Languages and query
+  Python: python
+  SQL: sql
+  R: '\bR\b(?! ?&)'
+  Scala: scala
+  Java: java(?!script)
+  Go: golang
+  Bash: bash|shell scripting
+  # Warehouses and databases
+  BigQuery: bigquery
+  Snowflake: snowflake
+  Redshift: redshift
+  Databricks: databricks
+  PostgreSQL: postgres(ql)?
+  MySQL: mysql
+  MongoDB: mongo(db)?
+  Oracle: oracle
+  SQL Server: sql server|mssql
+  Elasticsearch: elasticsearch|opensearch
+  Delta Lake: delta lake
+  # Processing and orchestration
+  Apache Spark: (apache )?spark|pyspark
+  Kafka: kafka
+  Airflow: (apache )?airflow
+  dbt: dbt
+  Dagster: dagster
+  Prefect: prefect
+  Flink: flink
+  Hadoop: hadoop|hive
+  Fivetran: fivetran
+  Airbyte: airbyte
+  ETL: etl
+  ELT: elt
+  # Cloud
+  AWS: aws|amazon web services
+  GCP: gcp|google cloud
+  Azure: azure
+  SageMaker: sagemaker
+  Vertex AI: vertex ai
+  Azure Data Factory: data factory|\bADF\b
+  Synapse: synapse
+  Glue: (aws )?glue(?! code)
+  Lambda: (aws )?lambda
+  # DevOps / MLOps
+  Docker: docker
+  Kubernetes: kubernetes|k8s
+  Terraform: terraform
+  CI/CD: ci/cd|github actions|gitlab ci|jenkins
+  MLflow: mlflow
+  Git: git(?!hub|lab)
+  Linux: linux
+  # BI and visualization
+  Power BI: power ?bi
+  Tableau: tableau
+  Looker: looker
+  Qlik: qlik
+  Metabase: metabase
+  Excel: excel(?!\s+(at|in|as)\b)   # skip the verb ("excel at...")
+  DAX: dax
+  # Data science and ML
+  Pandas: pandas
+  NumPy: numpy
+  scikit-learn: scikit-?learn|sklearn
+  XGBoost: xgboost|lightgbm|catboost
+  TensorFlow: tensorflow|keras
+  PyTorch: pytorch
+  Machine learning: machine learning
+  Deep learning: deep learning
+  Statistics: statistic(s|al)
+  A/B testing: a/b test(ing)?|experimentation
+  Forecasting: forecasting|time series
+  NLP: nlp|natural language processing
+  Computer vision: computer vision
+  Recommender systems: recommend(er|ation) systems?
+  # GenAI
+  LLM: llms?|large language models?
+  RAG: rag|retrieval[- ]augmented
+  LangChain: langchain|langgraph
+  LlamaIndex: llamaindex|llama index
+  Vector databases: vector (database|db|store)s?|pinecone|weaviate|pgvector|qdrant|chroma
+  Prompt engineering: prompt engineering
+  Fine-tuning: fine-?tuning
+  AI agents: ai agents?|agentic|autonomous agents?|multi-agent
+  # APIs and apps
+  FastAPI: fastapi
+  Flask: flask
+  Django: django
+  REST APIs: rest(ful)? apis?
+  Streamlit: streamlit
+  # Practices and governance
+  Data modeling: data model(l)?ing|dimensional model(l)?ing|star schema
+  Data governance: data governance|data quality|data catalog
+  Data warehousing: data warehous(e|ing)
+  Data lakes: data lake(house)?|lakehouse
+  Agile: agile|scrum|kanban
+
+  # Extracted from scraped data postings (frequent tools missing from the hand-made list)
+  TypeScript/JavaScript: typescript|javascript
+  React: react(\.js)?
+  Node.js: node\.?js
+  C++: c\+\+
+  Rust: rust
+  MATLAB: matlab
+  SAS: sas
+  JAX: jax
+  GraphQL: graphql
+  Pydantic: pydantic
+  NoSQL: nosql
+  Athena: (aws )?athena
+  S3: (aws )?s3
+  EMR: (aws )?emr
+  Kinesis: kinesis
+  GCP data services: pub/?sub|dataflow|dataproc|cloud composer
+  Microsoft Fabric: microsoft fabric
+  Apache Iceberg: iceberg
+  Trino/Presto: trino|presto
+  Parquet/Avro: parquet|avro
+  Apache Superset: superset
+  LookML: lookml
+  Product analytics: ga4|google analytics|amplitude|mixpanel
+  Google Sheets: google sheets
+  SAP/ERP: sap|erp
+  CRM (Salesforce/HubSpot): salesforce|hubspot|crm
+  Jira/Confluence: jira|confluence
+  KPIs: kpis?
+  DevOps: devops|devsecops
+  Observability: observability|grafana|prometheus|datadog|cloudwatch
+  GitHub/GitLab: github|gitlab
+  MLOps: mlops|llmops
+  Kubeflow: kubeflow
+  Generative AI: generative ai|genai|gen ai
+  LLM provider APIs: openai|anthropic|claude|gemini|bedrock|gpt-?\d
+  MCP: mcp|model context protocol
+  AI coding assistants: copilot|cursor|claude code|codex
+  Agent frameworks: crewai|autogen|agents sdk
+  LLM observability/evals: langsmith|langfuse|llm eval(uation)?s?
+  Hugging Face: hugging ?face|transformers
+  Data privacy: gdpr|pii|data privacy
+  IoT: iot

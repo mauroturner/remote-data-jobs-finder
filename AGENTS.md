@@ -91,6 +91,18 @@ Then, for the top 3 to 5:
 
 Never present a posting as a fit if its full text contradicts the filters (for example, "US only").
 
+The report has two more sections; present both briefly:
+
+- **Near misses**: postings that failed a single soft filter by a small margin (a plain "Senior" title, up to
+  `near_miss.max_extra_years` extra years required, salary slightly below the floor). Show the top ones with the
+  blocker, and say whether it looks negotiable given the resume (for example, 4.5 years vs "5+ years").
+- **Skill gaps**: skills that eligible postings ask for and the profile does not list. **Before calling something
+  a gap, check `your-resume/resume.md`.** If the resume already shows the skill, it is a config omission: propose
+  adding it to `profile.skills` instead. For real gaps, point out the 3 to 5 most demanded ones as learning
+  priorities.
+
+Postings flagged `new` (or "yes" in the New column) were not seen in previous runs; mention how many there are.
+
 If the user asks for a wider search, also check the portals in the README section
 "Company career portals without a public API (manual search)", starting with those marked **Data**. Open them
 with a web fetch or browser tool if you have one, look only for data roles, apply the same filters from
