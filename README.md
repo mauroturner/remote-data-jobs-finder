@@ -159,6 +159,7 @@ Tips:
   - `boards.greenhouse.io/<slug>` or `job-boards.greenhouse.io/<slug>` → `sources.greenhouse.companies`
   - `jobs.lever.co/<slug>` → `sources.lever.companies`
   - `jobs.ashbyhq.com/<slug>` → `sources.ashby.companies`
+  - `apply.workable.com/<slug>` → `sources.workable.companies`
 
 ## Usage
 
@@ -245,6 +246,7 @@ Postings below `output.min_score` are not shown.
 | Greenhouse | `boards-api.greenhouse.io/v1/boards/<slug>/jobs` | Official public job-board API |
 | Lever | `api.lever.co/v0/postings/<slug>` | Official public postings API |
 | Ashby | `api.ashbyhq.com/posting-api/job-board/<slug>` | Official public job-board API |
+| Workable | `apply.workable.com/api/v1/widget/accounts/<slug>` | Public careers widget API |
 | JobSpy (**disabled**) | `python-jobspy` package | Scrapes LinkedIn/Indeed; may violate their terms and get your IP blocked |
 
 To enable JobSpy, install it explicitly with `pip install python-jobspy` (**not** `jobspy`, which is an
@@ -272,6 +274,9 @@ boards, so a slug that starts returning 404 should be removed or updated.
 | Canonical | Greenhouse | `canonical` | https://job-boards.greenhouse.io/canonical |
 | Grafana Labs | Greenhouse | `grafanalabs` | https://job-boards.greenhouse.io/grafanalabs |
 | Toptal | Lever | `toptal` | https://jobs.lever.co/toptal |
+| Mutt Data | Lever | `muttdata` | https://jobs.lever.co/muttdata |
+| Despegar | Lever | `despegar` | https://jobs.lever.co/despegar |
+| Platzi | Workable | `platzi` | https://apply.workable.com/platzi |
 | Supabase | Ashby | `supabase` | https://jobs.ashbyhq.com/supabase |
 | PostHog | Ashby | `posthog` | https://jobs.ashbyhq.com/posthog |
 | n8n | Ashby | `n8n` | https://jobs.ashbyhq.com/n8n |
@@ -290,6 +295,75 @@ Curated lists to grow the company list. They are plain Markdown lists; nothing n
 | [remoteintech/remote-jobs](https://github.com/remoteintech/remote-jobs) | Remote-friendly tech companies, with their regions (also at remoteintech.company) |
 | [matildaexp/remote-latam](https://github.com/matildaexp/remote-latam) | Companies that hire remotely from Latin America |
 | [emredurukn/awesome-job-boards](https://github.com/emredurukn/awesome-job-boards) | Job boards grouped by niche |
+| [natayadev/portales-empleo](https://github.com/natayadev/portales-empleo) | Career portals of companies hiring in Argentina/LATAM, plus internship programs and salary surveys |
+
+### Company career portals without a public API (manual search)
+
+From [natayadev/portales-empleo](https://github.com/natayadev/portales-empleo). These portals load their
+postings with JavaScript or use platforms without a public jobs API, so the tool cannot query them; check them
+by hand or ask your agent to open them. Companies marked **Data** list data roles among their areas.
+
+| Platform | Companies |
+|---|---|
+| HiringRoom | [Bleett](https://bleett.hiringroom.com/jobs) (Data), [Palermo](https://palermo.hiringroom.com/jobs) (Data), [ITSM Consulting](https://itsmconsulting.hiringroom.com/jobs) (Data), [Banco Patagonia](https://bancopatagonia.hiringroom.com/jobs) (Data), [UCA](https://uca.hiringroom.com/jobs) (Data), [ITBA](https://itbauniversidad.hiringroom.com/jobs) (Data), [KPMG](https://kpmg.hiringroom.com/jobs), [La Caja](https://lacaja.hiringroom.com/jobs), [La Serenísima](https://laserenisima.hiringroom.com/jobs), [Temaikén](https://temaiken.hiringroom.com/jobs), [Ricky Sarkany](https://rickysarkany.hiringroom.com/jobs), [San Cristóbal](https://sancristobalrrhh.hiringroom.com/jobs), [Coca-Cola Andina](https://cocacolaandina.hiringroom.com/jobs), [UdeSA](https://udesa.hiringroom.com/jobs), [El Cronista](https://cronista.hiringroom.com/jobs), [Frávega](https://fravega.hiringroom.com/jobs), [Prune](https://prune.hiringroom.com/jobs), [Medifé](https://grupoaseconecta.hiringroom.com/jobs/microsite/medife), [UTDT](https://utdt.hiringroom.com/jobs), [Coca-Cola FEMSA](https://coca-colafemsa.hiringroom.com/jobs), [Flybondi](https://flybondi.hiringroom.com/jobs), [La Nación](https://lanacion.hiringroom.com/jobs) |
+| Workday | [Zillow](https://zillow.wd5.myworkdayjobs.com/en-US/Zillow_Group_External/jobs) (Data, mostly US-only) |
+| Eightfold | [Mercado Libre](https://mercadolibre.eightfold.ai/careers) (Data) |
+| Comeet | [Ualá](https://www.comeet.com/jobs/Uala/54.00B) (Data) |
+| Avature | [Baufest](https://baufest.avature.net/jobs/) (Data) |
+| SAP SuccessFactors | [Swiss Medical](https://swissmedical.jobs2web.com/go/Sistemas-y-Tecnologia/8240200/) (Data) |
+| Own career sites | [PedidosYa](https://empleos.pedidosya.com/) (Data), [Distillery](https://distillery.com/open-positions/) (Data), [Kranio](https://www.kranio.io/jobs) (Data), [Incluyeme](https://www.incluyeme.com.ar/trabajos/) (Data), [Lurecruiter](https://www.careers-page.com/lurecruiter) (Data), [Takenos](https://www.notion.so/f5e1d379ab084320bf94bfb1ecffc20e) (Data), [Seeds](https://app.weareseeders.com/) (Data), [Microsoft](https://careers.microsoft.com/v2/global/en/home.html) (Data), [IBM](https://www.ibm.com/careers/search) (Data), [Santander](https://www.santander.com/es/trabaja-con-nosotros) (Data), [Calmes Simple](https://calmessimple.com.ar/sumate/) |
+
+Salary references for Argentina, useful to set `min_monthly_usd`:
+[SysArmy salary survey](https://sysarmy.com/blog/tags/sueldos/),
+[Salancy](https://salarios.gonzalopozzo.com/).
+
+### Internship and trainee programs (manual search)
+
+Also from [natayadev/portales-empleo](https://github.com/natayadev/portales-empleo). The tool filters out
+internships by default (`reject_title` contains `intern`, `pasant`, `trainee`, `aprendiz`); remove those
+patterns from your `config.yaml` if you are looking for one. Programs open and close every year, so check the
+dates on each page.
+
+| Company | Program | Scope | Modality | Location | Link |
+|---|---|---|---|---|---|
+| L'Oréal | Programa de Pasantías | Argentina | Not specified | Buenos Aires | [careers.loreal.com](https://careers.loreal.com/es_ES/content/Students) |
+| Schneider Electric | Programa de Pasantías 2026 | Argentina | Hybrid / variable | Bahía Blanca / Buenos Aires | [themuse.com](https://www.themuse.com/jobs/schneiderelectric/programa-de-pasantias-schneider-electric-2026) |
+| Raízen | Programa de Pasantías 2026 | Argentina | Not specified | Argentina | [LinkedIn](https://ar.linkedin.com/jobs/pasante-de-sistemas-empleos) |
+| MetLife | Pasante de sistemas | Argentina | Not specified | Argentina | [LinkedIn](https://ar.linkedin.com/jobs/pasante-de-sistemas-empleos) |
+| Quilmes / AB InBev | Programa de Pasantías 2025/2026 | Argentina | On-site / variable | Buenos Aires and other sites | [LinkedIn](https://ar.linkedin.com/jobs/view/programa-de-pasant%C3%ADas-2025-at-cervecer%C3%ADa-y-malter%C3%ADa-quilmes-4161970320) |
+| Naranja X | Talento Go 2026 | Argentina | Hybrid | Argentina | [careers.naranjax.com](https://careers.naranjax.com/) |
+| Despegar | Pasaporte Trainee / Jóvenes de Alto Vuelo | Argentina | Hybrid | Buenos Aires | [jobs.lever.co/despegar](https://jobs.lever.co/despegar) |
+| Mercado Libre | IT Academy | Argentina | Not specified | CABA | [mercadolibre.com.ar/itacademy](https://www.mercadolibre.com.ar/itacademy) |
+| Google | Business Internship Program 2026 | Argentina / LATAM | Hybrid | Buenos Aires | [careers.google.com/students](https://careers.google.com/students/) |
+| Accenture | Changemakers Program | Argentina | Part-time | CABA/AMBA / Mar del Plata / Rosario | [accenture.com](https://www.accenture.com/us-en/careers/life-at-accenture/internships-students) |
+| INVAP | Programa de Pasantías 2026 | Argentina | Not specified | Río Negro | [invap.com.ar](https://www.invap.com.ar/talento/pasantias/) |
+| Danone | Programa de Pasantías 2026 – IT | Argentina | Part-time | Núñez, CABA | [incluyeme.com.ar](https://www.incluyeme.com.ar/trabajo/pasantia-it/) |
+| Natura | Programa de Pasantías | Argentina | Variable | Argentina | [LinkedIn](https://www.linkedin.com/jobs/view/294282346) |
+| La Virginia | Programa de Pasantías | Argentina | On-site | Rosario, Santa Fe | [sumate.lavirginia.com.ar](https://sumate.lavirginia.com.ar/) |
+| Denso | Programa de Pasantías | Argentina | Not specified | Argentina | [bumeran.com.ar](https://www.bumeran.com.ar/empleos/programa-de-pasantias-en-denso-selpe-1118309425.html) |
+| IBM | Blue Journey / Student Intern Program | Argentina / LATAM / global | Hybrid / on-site | Buenos Aires | [ibm.com/careers/internships](https://www.ibm.com/careers/internships) |
+| Microsoft | Student / internship programs | LATAM / global | Variable | Global | [careers.microsoft.com](https://careers.microsoft.com/v2/global/en/universityinternship) |
+| Electronic Arts | Data Analysis & Software Engineer interns | LATAM / global | Variable | Colombia | [ea.com/careers](https://www.ea.com/es-mx/careers/early-careers) |
+| Disney | Argentina Internships | Argentina | Not specified | Argentina | [disneycareers.com](https://www.disneycareers.com/es/argentina-internships) |
+| Philips | Pasantías y Prácticas Profesionales | LATAM | Variable | LATAM | [careers.philips.com](https://www.careers.philips.com/student/latam/es/pasantias) |
+| MSD | Pasantías - Medical Affairs (Aug 2026 intake) | LATAM | Hybrid | Buenos Aires | [bebee.com](https://bebee.com/ar/jobs/programa-de-pasantias-medical-affairs-msd-latam-buenos-aires-buenos-aires-province--theirstack-661470783) |
+| Publissoft | Pasantías remotas | LATAM | Remote | LATAM | [LinkedIn](https://es.linkedin.com/posts/bel%C3%A9n-camargo-1475221a8_pasant%C3%ADas-en-publissoft-activity-7291192931967770624-FC6U) |
+| Deinsa Global / Grupo GAO | Pasantía virtual | LATAM | Remote | LATAM | [mifuturoempleo.com](https://ar.mifuturoempleo.com/oferta-de-empleo/pasantia-virtual-de-marketing-digital-remoto-latam-en-/126584) |
+| eHunting LATAM | Pasantía de tecnología | LATAM | Remote | LATAM | [bebee.com](https://bebee.com/cl/jobs/pasantia-de-tecnologia-100-remoto-ehunting-latam--un-mejor-5698001) |
+| Techint / Tenaris | Estudiantes universitarios / Cybersecurity Trainee / IT | Argentina | Variable | Buenos Aires / Campana | [careers.techint.com](https://careers.techint.com/go/Estudiantes-Universitarios/3010000/) |
+| Nestlé | Programa de Pasantías | Argentina | Depends on area | Argentina | [jovenesnestle.com.ar](https://www.jovenesnestle.com.ar/pasantias-nestle) |
+| Ford | Programa de Pasantías | Argentina | On-site (20 h/week) | Argentina | [ford.com.ar](https://www.ford.com.ar/recursos-humanos/programa-pasantia/) |
+| Arcor | Programa de Pasantías | Argentina | On-site (4 h/day) | Buenos Aires / Córdoba / San Luis / Mendoza | [arcor.com](https://www.arcor.com/ar/rrhh-programa-de-pasantias) |
+| BBVA | Pasantías part-time | Argentina | On-site, part-time | La Plata / City Bell | [bbva.wd3.myworkdayjobs.com](https://bbva.wd3.myworkdayjobs.com/es/BBVA) |
+| CEVA Logistics | Pasantías Administración / Ingeniería | Argentina | Not specified | Santa Fe / Buenos Aires | [LinkedIn](https://ar.linkedin.com/jobs/ceva-logistics-empleos) |
+| Makro | Programa de Pasantías | Argentina | On-site (20 h/week) | Argentina | [makrohr.hiringroom.com](https://makrohr.hiringroom.com/jobs/get_vacancy/678e9bdda536f48fbd9b3da6) |
+| Oracle | GenO - Programa de Pasantías | Argentina | On-site / hybrid (20 h/week) | Buenos Aires | [oracle.com](https://www.oracle.com/cl/careers/generation-oracle/) |
+| Iveco Group | Programa de Pasantías IVG | Argentina | On-site | Córdoba / Buenos Aires | [LinkedIn](https://ar.linkedin.com/jobs/view/programa-de-pasant%C3%ADas-ivg-2025-c%C3%B3rdoba-at-iveco-group-4189491750) |
+| COELSA | Pasantía Business Intelligence | Argentina | Not specified | Buenos Aires | [LinkedIn](https://ar.linkedin.com/company/coelsa/jobs) |
+| Edenor | Programa de Pasantías 2026 | Argentina | Reduced hours | Buenos Aires | [edenor.com](https://www.edenor.com/trabaja-en-edenor/nuestras-iniciativas/programa-de-pasantias) |
+| Salesforce | LATAM Internship Program | LATAM | On-site / hybrid | Buenos Aires | [careers.salesforce.com](https://careers.salesforce.com/en/jobs/jr236329/latam-internship-program-sales-intern-argentina/) |
+| ICBC | Generación Sí 2026 | Argentina | On-site | Argentina | [LinkedIn](https://www.linkedin.com/company/icbc-argentina/) |
+| Direcciona RH | Internship and young professional programs (Danone, Personal, YPF, Young Trails) | Argentina | Hybrid | Argentina | [LinkedIn](https://www.linkedin.com/company/direccionaok/) |
 
 ### Other LATAM boards (manual search, no API used)
 

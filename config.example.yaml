@@ -48,8 +48,9 @@ sources:
   getonbrd:   {enabled: true, categories: [data-science-analytics, machine-learning-ai], pages: 3}
   # Company portals (see README "Company career portals"). Slug = last part of the careers URL.
   greenhouse: {enabled: true, companies: [gitlab, wizeline, canonical, grafanalabs]}   # job-boards.greenhouse.io/<slug>
-  lever:      {enabled: true, companies: [toptal]}                                     # jobs.lever.co/<slug>
+  lever:      {enabled: true, companies: [toptal, muttdata, despegar]}                 # jobs.lever.co/<slug>
   ashby:      {enabled: true, companies: [supabase, posthog, n8n, airbyte]}            # jobs.ashbyhq.com/<slug>
+  workable:   {enabled: true, companies: [platzi]}                                     # apply.workable.com/<slug>
   jobspy:     {enabled: false}   # LinkedIn/Indeed scraping: may violate their ToS, off by default
 
 http:

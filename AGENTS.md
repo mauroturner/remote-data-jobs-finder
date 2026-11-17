@@ -91,6 +91,12 @@ Then, for the top 3 to 5:
 
 Never present a posting as a fit if its full text contradicts the filters (for example, "US only").
 
+If the user asks for a wider search, also check the portals in the README section
+"Company career portals without a public API (manual search)", starting with those marked **Data**. Open them
+with a web fetch or browser tool if you have one, look only for data roles, apply the same filters from
+`config.yaml`, and list them separately as "manual portals". Many of these pages render with JavaScript; if a
+page shows no postings, say so and give the user the link instead of guessing.
+
 ### 7. Tune and repeat
 
 - If there are few results, read "Rejected by reason" in the report, explain which filter removes the most,

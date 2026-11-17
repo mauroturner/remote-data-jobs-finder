@@ -222,6 +222,23 @@ def ashby(http: Http, opts: dict) -> list[Job]:
     return jobs
 
 
+def workable(http: Http, opts: dict) -> list[Job]:
+    jobs = []
+    for slug in opts.get("companies", []):
+        data = http.get_json(f"https://apply.workable.com/api/v1/widget/accounts/{slug}", {"details": "true"})
+        for j in data.get("jobs", []):
+            remote = str(j.get("telecommuting")).lower() == "true"
+            place = ", ".join(x for x in (j.get("city"), j.get("country")) if x)
+            jobs.append(Job(
+                source=f"workable:{slug}", title=j.get("title", ""), company=slug,
+                url=j.get("shortlink") or j.get("url", ""),
+                location=f"Remote, {place}" if remote and place else ("Remote" if remote else place),
+                description=j.get("description", ""), published_at=_ts(j.get("published_on")),
+                remote=remote,
+            ))
+    return jobs
+
+
 # ---------------------------------------------------------------- optional scraper
 
 def jobspy(http: Http, opts: dict) -> list[Job]:
@@ -251,5 +268,6 @@ def jobspy(http: Http, opts: dict) -> list[Job]:
 
 SOURCES: dict[str, Callable[[Http, dict], list[Job]]] = {
     "remotive": remotive, "jobicy": jobicy, "himalayas": himalayas, "remoteok": remoteok,
-    "getonbrd": getonbrd, "greenhouse": greenhouse, "lever": lever, "ashby": ashby, "jobspy": jobspy,
+    "getonbrd": getonbrd, "greenhouse": greenhouse, "lever": lever, "ashby": ashby, "workable": workable,
+    "jobspy": jobspy,
 }
