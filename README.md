@@ -91,7 +91,8 @@ does not fit, and scores the rest so the best matches are at the top.
 | Missing skills per posting | For each match: the skills it asks for that your profile lacks, to prepare before applying | [Missing skills per posting](#missing-skills-per-posting) |
 | Near misses | Postings blocked by a single, negotiable detail ("Senior" title, 6 years instead of 5...) | [Near misses](#near-misses) |
 | Skill gaps | The skills the market asks for most that your profile does not list | [Skill gaps](#skill-gaps) |
-| New since last run | `new` flag on postings you have not seen before | [What to expect](#what-to-expect) |
+| Only new postings | Each run lists only postings you have not seen in earlier runs (`--all` shows everything) | [New postings only](#new-postings-only) |
+| Fresh first | Postings from the last week only; those published in the last 24 hours rank higher (`24h` flag) | [Freshness](#freshness) |
 | Market snapshot | Remote data postings by seniority and by role, with each role's most requested skills | [Remote data job market](#remote-data-job-market) |
 | Agent-first workflow | Your AI agent converts your resume, builds your profile and runs everything | [Agent-first quick start](#agent-first-quick-start) |
 | Never applies | Read-only: applying is always your decision | [What it does not do](#what-it-does-not-do) |
@@ -152,14 +153,15 @@ expressions.
 | Section | What you set | Example |
 |---|---|---|
 | `profile.skills` | Your skills and how much each one matters (weight) | `python: 3`, `power bi: 3`, `llms?: 2` |
+| `filters.max_age_days` | Maximum age of a posting, in days since publication | `7` (default) |
 | `filters.title_include` / `title_exclude` | Which job titles count as data roles | `'\bdata\b'`, `'analytics'` |
 | `filters.seniority` | Levels you accept / reject, max years of experience required | accept `junior`, `semi senior`; reject `senior`, `lead` |
 | `filters.location` | Regions you can legally work from, preferred regions, blocked phrases | allowed `latam`, `worldwide`; blocked `US only` |
 | `filters.salary` | Monthly USD floor, target, approximate FX rates | `min_monthly_usd: 3000` |
 | `filters.language` | Phrases that signal demanding English, and whether to reject or just penalize | `fluent english`, `\bC1\b` |
-| `scoring` | Relative weight of each scoring dimension | `skills: 40` |
+| `scoring` | Relative weight of each scoring dimension, including how much freshness counts | `skills: 40`, `freshness: 15` |
 | `sources` | Which sources are enabled and their parameters (categories, company slugs...) | `greenhouse: {companies: [gitlab]}` |
-| `output` | Report folder, how many rows in the Markdown report, minimum score | `top_n: 40` |
+| `output` | Report folder, how many rows in the Markdown report, minimum score, whether to hide postings already seen | `top_n: 40`, `only_new: true` |
 | `near_miss` | How close a posting must be to count as a near miss | `max_extra_years: 2` |
 | `insights` | Skills catalog path, how many near misses and gaps to show, new-posting tracking | `gaps_top_n: 15` |
 
@@ -181,7 +183,8 @@ Tips:
 
 ```bash
 python -m jobfinder.resume                  # convert your-resume/<file> to your-resume/resume.md
-python -m jobfinder                         # uses ./config.yaml
+python -m jobfinder                         # uses ./config.yaml; lists only postings not seen in earlier runs
+python -m jobfinder --all                   # also list postings already shown in earlier runs
 python -m jobfinder --config other.yaml     # use another config file
 python -m jobfinder -v                      # verbose logging
 python -m jobfinder.market                  # market snapshot (independent of your profile)
@@ -203,7 +206,7 @@ On Windows, if accented characters look broken in the console, run
   jobicy         78 postings
   himalayas     360 postings
   ...
-  1762 fetched, 8 kept. Reports:
+  1762 fetched, 8 kept (8 new; 3 already seen, hidden), 12 near misses, 15 skill gaps. Reports:
     output/jobs-20261117-1602.csv
     output/jobs-20261117-1602.md
   ```
@@ -219,13 +222,15 @@ On Windows, if accented characters look broken in the console, run
     4. **Rejected by reason**: how many postings each filter removed.
   - `jobs-<date>.csv`: every kept posting with matched skills, missing skills, source and publication date.
     Opens in Excel (UTF-8 with BOM).
-  - `seen.json`: postings seen in previous runs, used to flag new ones (see `insights.track_new`).
+  - `seen.json`: postings seen in previous runs, used to hide them in the next run (see
+    [New postings only](#new-postings-only)).
   - `market-<date>.md`: written by `python -m jobfinder.market` (see [Remote data job market](#remote-data-job-market)).
 - **Flags** in the report:
 
   | Flag | Meaning |
   |---|---|
-  | `new` | Not seen in previous runs (kept for `insights.new_retention_days` days) |
+  | `new` | Not seen in previous runs (kept for `insights.new_retention_days` days); visible with `--all` |
+  | `24h` | Published in the last 24 hours: apply early, these rank higher |
   | `latam-friendly` | Location explicitly names one of your preferred regions |
   | `junior/mid` | Title or source level matches an accepted seniority |
   | `spanish` | Posting is written in Spanish |
@@ -249,7 +254,7 @@ negotiable):
 | 1 | Data role | `title_include` / `title_exclude` | hard (non-data roles are discarded right away) |
 | 2 | Seniority | `reject_title`, `reject_hint`, `max_years_required` | soft for a plain "Senior"/"Sr." and for a few extra years; hard for lead/staff/principal/manager... |
 | 3 | Location | remote, allowed regions, blocked phrases | hard |
-| 4 | Freshness | `max_age_days` | hard |
+| 4 | Freshness | `max_age_days` (default 7 days) | hard |
 | 5 | Salary floor | `min_monthly_usd` (only if a salary is published) | soft when close to the floor |
 | 6 | Language | `reject_english_demanding` | soft |
 
@@ -262,8 +267,39 @@ Every data role gets a score from 0 to 100 (so near misses can be ranked too):
 | Salary | Published and above the floor | Not published |
 | Location | Preferred region named | Other allowed or neutral location |
 | Language | Spanish posting | English without demanding requirements (lower if demanding) |
+| Freshness | Published in the last 24 hours | Decreases linearly to 0 at `max_age_days`; half points when the date is unknown |
 
 Postings below `output.min_score` are not shown.
+
+### Freshness
+
+Applying early matters: the first applicants are the ones recruiters read. By default only postings published in
+the last **7 days** are kept (`filters.max_age_days`), and the `freshness` weight in `scoring` ranks the
+newest ones higher:
+
+| Posted | Freshness points |
+|---|---|
+| Within 24 hours | 100% (and the `24h` flag) |
+| 4 days ago | 50% |
+| 7 days ago | 0% |
+| Date not published by the source | 50% |
+
+Set `scoring.freshness: 0` to rank by fit only, or raise `max_age_days` to look further back. Configs written
+before this option existed have no `freshness` key and keep their previous scores.
+
+### New postings only
+
+Each run records the postings it showed (matches and near misses) in `output/seen.json`, and the next run
+**hides them**. If you ran the tool today, tomorrow's report only lists what was published, or first indexed,
+since then. The report header says how many were hidden.
+
+This is based on which postings you have already seen, not on a date cut-off: some sources index postings a day
+or two after their publication date, and a date cut-off would silently drop those.
+
+- `python -m jobfinder --all` lists everything again for one run (postings already seen keep no `new` flag).
+- `output.only_new: false` turns the behavior off permanently.
+- Entries older than `insights.new_retention_days` (120 by default) are forgotten. Deleting `seen.json` starts
+  from scratch.
 
 ### Duplicates
 

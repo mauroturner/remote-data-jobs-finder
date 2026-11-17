@@ -104,7 +104,10 @@ The report has two more sections; present both briefly:
   adding it to `profile.skills` instead. For real gaps, point out the 3 to 5 most demanded ones as learning
   priorities.
 
-Postings flagged `new` (or "yes" in the New column) were not seen in previous runs; mention how many there are.
+By default the report lists only postings not shown in earlier runs, published in the last 7 days; its first
+line says how many already-seen postings were hidden. If the user wants to review those again, re-run with
+`python -m jobfinder --all`. Point out postings flagged `24h` first: they were published in the last 24 hours and
+are worth applying to early.
 
 If the user asks for a wider search, also check the portals in the README section
 "Company career portals without a public API (manual search)", starting with those marked **Data**. Open them

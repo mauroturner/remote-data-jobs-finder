@@ -74,7 +74,7 @@ def _missing(job: Job, limit: int = 5) -> str:
 
 
 def write_reports(kept: list[Job], near: list[Job], gaps: list[SkillGap], eligible_count: int,
-                  rejected: Counter, out_dir: Path, top_n: int) -> tuple[Path, Path]:
+                  rejected: Counter, out_dir: Path, top_n: int, hidden_seen: int = 0) -> tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     csv_path, md_path = out_dir / f"jobs-{stamp}.csv", out_dir / f"jobs-{stamp}.md"
@@ -88,8 +88,11 @@ def write_reports(kept: list[Job], near: list[Job], gaps: list[SkillGap], eligib
                              j.published_at.date().isoformat() if j.published_at else "", j.url])
 
     new_count = sum(j.is_new for j in kept)
-    lines = [f"# Job matches {stamp}", "",
-             f"{len(kept)} matches ({new_count} new since the last run). Top {min(top_n, len(kept))}.",
+    summary = f"{len(kept)} matches ({new_count} new since the last run). Top {min(top_n, len(kept))}."
+    if hidden_seen:
+        summary += (f" {hidden_seen} already seen in earlier runs are hidden (run with --all to include them, or "
+                    "open the previous report).")
+    lines = [f"# Job matches {stamp}", "", summary,
              "\"Missing skills\" = skills the posting asks for that your profile does not list: prepare them "
              "before applying.", "",
              "| Score | Role | Company | Location | USD/month | Flags | Missing skills | URL |",
@@ -136,6 +139,8 @@ def load_catalog(path: Path) -> dict[str, str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Find remote data jobs that fit your profile (no auto-apply).")
     parser.add_argument("--config", type=Path, default=Path("config.yaml"))
+    parser.add_argument("--all", action="store_true",
+                        help="also list postings already shown in earlier runs (default: only new ones)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(message)s")
@@ -159,13 +164,20 @@ def main(argv: list[str] | None = None) -> int:
     annotate_missing(kept + near, catalog, cfg["profile"]["skills"])
     eligible_count = len({j.dedup_key for j in evaluated if j.eligible})
 
+    hidden_seen = 0
     if ins.get("track_new", True):
         mark_new(kept + near, out_dir / "seen.json", retention_days=ins.get("new_retention_days", 120))
         for j in kept:
             if j.is_new:
                 j.flags.insert(0, "new")
+        if out.get("only_new", True) and not args.all:
+            hidden_seen = sum(not j.is_new for j in kept + near)
+            kept = [j for j in kept if j.is_new]
+            near = [j for j in near if j.is_new]
 
-    csv_path, md_path = write_reports(kept, near, gaps, eligible_count, rejected, out_dir, out.get("top_n", 40))
-    log.info("\n%d fetched, %d kept (%d new), %d near misses, %d skill gaps. Reports:\n  %s\n  %s",
-             len(raw), len(kept), sum(j.is_new for j in kept), len(near), len(gaps), csv_path, md_path)
+    csv_path, md_path = write_reports(kept, near, gaps, eligible_count, rejected, out_dir, out.get("top_n", 40),
+                                      hidden_seen)
+    log.info("\n%d fetched, %d kept (%d new; %d already seen, hidden), %d near misses, %d skill gaps. Reports:"
+             "\n  %s\n  %s", len(raw), len(kept), sum(j.is_new for j in kept), hidden_seen, len(near), len(gaps),
+             csv_path, md_path)
     return 0

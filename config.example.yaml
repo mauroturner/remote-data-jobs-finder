@@ -9,7 +9,7 @@ profile:
   match_saturation: 0.35   # fraction of total skill weight that already counts as a full match
 
 filters:
-  max_age_days: 30
+  max_age_days: 7          # only postings published in the last week; the first 24 hours rank higher
   title_include: ['\bdata\b', 'analytics', 'machine learning', '\bML\b', '\bAI\b']
   title_exclude: ['sales', 'recruit']
   seniority:
@@ -52,6 +52,7 @@ scoring:   # relative weights
   salary: 15
   location: 15
   language: 15
+  freshness: 15   # 1.0 in the first 24 hours, down to 0 at max_age_days
 
 sources:
   remotive:   {enabled: true, categories: [data, artificial-intelligence]}
@@ -74,3 +75,4 @@ output:
   dir: output
   top_n: 40
   min_score: 0
+  only_new: true   # hide postings shown in earlier runs (needs insights.track_new); --all shows them again

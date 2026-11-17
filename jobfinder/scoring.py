@@ -137,12 +137,30 @@ def looks_spanish(job: Job) -> bool:
     return sum(w in es for w in words) / len(words) > 0.08
 
 
-def is_too_old(job: Job, max_age_days: int | None, now: datetime | None = None) -> bool:
-    if not max_age_days or not job.published_at:
-        return False
+def age_hours(job: Job, now: datetime | None = None) -> float | None:
+    if not job.published_at:
+        return None
     now = now or datetime.now(timezone.utc)
     published = job.published_at if job.published_at.tzinfo else job.published_at.replace(tzinfo=timezone.utc)
-    return (now - published).days > max_age_days
+    return max(0.0, (now - published).total_seconds() / 3600)
+
+
+def is_too_old(job: Job, max_age_days: int | None, now: datetime | None = None) -> bool:
+    hours = age_hours(job, now)
+    if not max_age_days or hours is None:
+        return False
+    return int(hours // 24) > max_age_days  # whole days, so a posting is kept through its last day
+
+
+def freshness_points(job: Job, max_age_days: int | None, now: datetime | None = None) -> float:
+    """1.0 within the first 24 hours, then linearly down to 0.0 at `max_age_days`; 0.5 when the date is unknown."""
+    hours = age_hours(job, now)
+    if hours is None:
+        return 0.5
+    if hours <= 24:
+        return 1.0
+    window = max(1, max_age_days or 30) * 24 - 24
+    return max(0.0, 1 - (hours - 24) / window) if window > 0 else 0.0
 
 
 _PLAIN_SENIOR_RE = re.compile(r"^\s*(senior|sr\.?)\b", re.IGNORECASE)
@@ -209,9 +227,14 @@ def evaluate(job: Job, cfg: dict[str, Any], now: datetime | None = None) -> Job:
     if region_ok and _any_match(loc.get("preferred", []), location):
         flags.append("latam-friendly")
 
-    # 4. Freshness (hard).
-    if is_too_old(job, filters.get("max_age_days"), now):
+    # 4. Freshness: older than max_age_days is a hard failure; the first 24 hours earn extra points.
+    max_age = filters.get("max_age_days")
+    if is_too_old(job, max_age, now):
         fail("too old")
+    fresh_points = freshness_points(job, max_age, now)
+    hours = age_hours(job, now)
+    if hours is not None and hours <= 24:
+        flags.append("24h")
 
     # 5. Salary. Slightly below the floor is a soft failure.
     sal = filters["salary"]
@@ -265,6 +288,7 @@ def evaluate(job: Job, cfg: dict[str, Any], now: datetime | None = None) -> Job:
             + w["salary"] * salary_points
             + w["location"] * (1.0 if "latam-friendly" in flags else 0.6)
             + w["language"] * language_points
+            + w.get("freshness", 0) * fresh_points
         )
         / sum(w.values()),
         1,
