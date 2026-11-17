@@ -30,6 +30,29 @@ def _covered(name: str, pattern: str, profile_keys: list[str]) -> bool:
     return False
 
 
+def compile_catalog(catalog: dict[str, str]) -> dict[str, re.Pattern]:
+    return {name: re.compile(rf"(?<![\w])(?:{pattern})(?![\w])", re.IGNORECASE) for name, pattern in catalog.items()}
+
+
+def uncovered(catalog: dict[str, str], profile_skills: dict) -> dict[str, re.Pattern]:
+    """Compiled catalog entries that no profile skill covers."""
+    keys = list(profile_skills)
+    return compile_catalog({n: p for n, p in catalog.items() if not _covered(n, p, keys)})
+
+
+def mentioned(job: Job, compiled: dict[str, re.Pattern]) -> list[str]:
+    """Catalog skill names the posting mentions, in catalog order."""
+    text = f"{job.title} {job.description}"
+    return [name for name, regex in compiled.items() if regex.search(text)]
+
+
+def annotate_missing(jobs: list[Job], catalog: dict[str, str], profile_skills: dict) -> None:
+    """Set `missing_skills` on each job: what it asks for that the profile does not list."""
+    gaps = uncovered(catalog, profile_skills)
+    for job in jobs:
+        job.missing_skills = mentioned(job, gaps)
+
+
 def skill_gaps(jobs: list[Job], catalog: dict[str, str], profile_skills: dict, min_count: int = 1) -> list[SkillGap]:
     """Catalog skills that eligible postings ask for and the profile does not list, most demanded first."""
     unique: dict[tuple[str, str], Job] = {}
@@ -38,14 +61,12 @@ def skill_gaps(jobs: list[Job], catalog: dict[str, str], profile_skills: dict, m
             unique.setdefault(job.dedup_key, job)
     if not unique:
         return []
-    keys = list(profile_skills)
-    missing = {name: pattern for name, pattern in catalog.items() if not _covered(name, pattern, keys)}
-    gaps = []
-    for name, pattern in missing.items():
-        regex = re.compile(rf"(?<![\w])(?:{pattern})(?![\w])", re.IGNORECASE)
-        count = sum(1 for j in unique.values() if regex.search(f"{j.title} {j.description}"))
-        if count >= min_count:
-            gaps.append(SkillGap(name, count, count / len(unique)))
+    counts: dict[str, int] = {}
+    gaps_re = uncovered(catalog, profile_skills)
+    for job in unique.values():
+        for name in mentioned(job, gaps_re):
+            counts[name] = counts.get(name, 0) + 1
+    gaps = [SkillGap(name, c, c / len(unique)) for name, c in counts.items() if c >= min_count]
     return sorted(gaps, key=lambda g: (-g.count, g.skill))
 
 

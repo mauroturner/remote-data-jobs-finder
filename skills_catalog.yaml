@@ -95,7 +95,7 @@ skills:
   Streamlit: streamlit
   # Practices and governance
   Data modeling: data model(l)?ing|dimensional model(l)?ing|star schema
-  Data governance: data governance|data quality|data catalog
+  Data quality / governance: data governance|data quality|data catalog
   Data warehousing: data warehous(e|ing)
   Data lakes: data lake(house)?|lakehouse
   Agile: agile|scrum|kanban

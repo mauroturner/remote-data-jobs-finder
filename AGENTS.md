@@ -27,6 +27,7 @@ profile, run the job finder, and present the postings that genuinely fit, with h
 | `python -m jobfinder.resume` | Converts the newest file in `your-resume/` to `your-resume/resume.md` with MarkItDown |
 | `python -m jobfinder` | Fetches postings, filters and scores them with `config.yaml`, writes `output/jobs-<date>.md` and `.csv` |
 | `python -m jobfinder -v` | Same, with verbose logs |
+| `python -m jobfinder.market` | Market snapshot of remote data postings by seniority and role, with each role's most requested skills (`output/market-<date>.md`); independent of the profile |
 | `python -m pytest` | Runs the test suite (use it to check the installation) |
 
 Configuration reference: `config.example.yaml` (template) and the "Configuration" and "How a posting is scored"
@@ -85,7 +86,9 @@ For the top matches (up to 10), give a table: score, role, company, location, US
 Then, for the top 3 to 5:
 
 - Open the posting (with a web fetch tool if you have one) and compare its requirements with the resume.
-- Give a fit verdict: strong / possible / stretch, with the matched skills and the concrete gaps.
+- Give a fit verdict: strong / possible / stretch, with the matched skills and the concrete gaps. Start from the
+  report's **Missing skills** column, confirm each one against the resume, and suggest an honest way to address it
+  (an adjacent skill the user has, or a quick thing to learn before the interview).
 - Point out flags that matter: `salary-unknown` (ask in the first call), `ask-for-more` (negotiate up),
   `english-demanding`, region restrictions found in the full text.
 
@@ -117,7 +120,13 @@ page shows no postings, say so and give the user the link instead of guessing.
 - To add companies, use the curated lists in `README.md` ("Where to find more companies"), find the ATS slug of
   each company's careers page, and verify it responds before adding it.
 
-### 8. Optional, only on request
+### 8. Market questions
+
+If the user asks what the market looks like, which seniority is most in demand, or what a role requires, run
+`python -m jobfinder.market` (add `--min-share 0.3` for longer skill lists) and summarize the newest
+`output/market-*.md`. Compare the user's profile with the skills of their target role.
+
+### 9. Optional, only on request
 
 - Tailor the resume summary or draft a cover letter for a specific posting. Save drafts under `output/`
   (git-ignored). Base them strictly on the resume: never add experience the user does not have.

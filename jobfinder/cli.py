@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from .insights import SkillGap, mark_new, skill_gaps
+from .insights import SkillGap, annotate_missing, mark_new, skill_gaps
 from .models import Job
 from .scoring import evaluate
 from .sources import SOURCES, Http
@@ -67,6 +67,12 @@ def _cell(value: object) -> str:
     return str(value).replace("|", "/")[:60]
 
 
+def _missing(job: Job, limit: int = 5) -> str:
+    extra = len(job.missing_skills) - limit
+    text = ", ".join(job.missing_skills[:limit])
+    return f"{text} (+{extra})" if extra > 0 else text or "—"
+
+
 def write_reports(kept: list[Job], near: list[Job], gaps: list[SkillGap], eligible_count: int,
                   rejected: Counter, out_dir: Path, top_n: int) -> tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -74,30 +80,34 @@ def write_reports(kept: list[Job], near: list[Job], gaps: list[SkillGap], eligib
     csv_path, md_path = out_dir / f"jobs-{stamp}.csv", out_dir / f"jobs-{stamp}.md"
     with csv_path.open("w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["score", "title", "company", "location", "usd_month", "flags", "skills", "source",
-                         "published", "url"])
+        writer.writerow(["score", "title", "company", "location", "usd_month", "flags", "skills", "missing_skills",
+                         "source", "published", "url"])
         for j in kept:
             writer.writerow([j.score, j.title, j.company, j.location, _salary(j), " ".join(j.flags),
-                             ", ".join(j.matched_skills), j.source,
+                             ", ".join(j.matched_skills), ", ".join(j.missing_skills), j.source,
                              j.published_at.date().isoformat() if j.published_at else "", j.url])
 
     new_count = sum(j.is_new for j in kept)
     lines = [f"# Job matches {stamp}", "",
-             f"{len(kept)} matches ({new_count} new since the last run). Top {min(top_n, len(kept))}:", "",
-             "| Score | Role | Company | Location | USD/month | Flags | URL |", "|---|---|---|---|---|---|---|"]
+             f"{len(kept)} matches ({new_count} new since the last run). Top {min(top_n, len(kept))}.",
+             "\"Missing skills\" = skills the posting asks for that your profile does not list: prepare them "
+             "before applying.", "",
+             "| Score | Role | Company | Location | USD/month | Flags | Missing skills | URL |",
+             "|---|---|---|---|---|---|---|---|"]
     for j in kept[:top_n]:
         lines.append(f"| {j.score} | {_cell(j.title)} | {_cell(j.company)} | {_cell(j.location)} | {_salary(j)} "
-                     f"| {' '.join(j.flags)} | {j.url} |")
+                     f"| {' '.join(j.flags)} | {_missing(j)} | {j.url} |")
 
     lines += ["", "## Near misses", "",
               "Postings that failed a single soft filter by a small margin. Worth a look: the blocker may be "
               "negotiable.", ""]
     if near:
-        lines += ["| Score | Role | Company | Location | USD/month | Blocked by | New | URL |",
-                  "|---|---|---|---|---|---|---|---|"]
+        lines += ["| Score | Role | Company | Location | USD/month | Blocked by | Missing skills | New | URL |",
+                  "|---|---|---|---|---|---|---|---|---|"]
         for j in near:
             lines.append(f"| {j.score} | {_cell(j.title)} | {_cell(j.company)} | {_cell(j.location)} "
-                         f"| {_salary(j)} | {_cell(j.reject_reason)} | {'yes' if j.is_new else ''} | {j.url} |")
+                         f"| {_salary(j)} | {_cell(j.reject_reason)} | {_missing(j)} | {'yes' if j.is_new else ''} "
+                         f"| {j.url} |")
     else:
         lines.append("None this run.")
 
@@ -146,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     catalog = load_catalog(Path(ins.get("skills_catalog", "skills_catalog.yaml")))
     gaps = skill_gaps(evaluated, catalog, cfg["profile"]["skills"], ins.get("gaps_min_count", 2))
     gaps = gaps[: ins.get("gaps_top_n", 15)]
+    annotate_missing(kept + near, catalog, cfg["profile"]["skills"])
     eligible_count = len({j.dedup_key for j in evaluated if j.eligible})
 
     if ins.get("track_new", True):

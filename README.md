@@ -49,6 +49,7 @@ Prefer doing it by hand? Follow [Installation](#installation) and [Usage](#usage
 - [Usage](#usage)
 - [What to expect](#what-to-expect)
 - [How a posting is scored](#how-a-posting-is-scored)
+- [Remote data job market](#remote-data-job-market)
 - [Sources](#sources)
 - [Privacy: what is never committed](#privacy-what-is-never-committed)
 - [Security notes](#security-notes)
@@ -70,7 +71,7 @@ does not fit, and scores the rest so the best matches are at the top.
 ## What it does
 
 1. **Collects** postings from public job-board APIs and from the public career pages (ATS) of selected
-   companies.
+   companies, and **removes duplicates** (the same posting found in several sources or queries).
 2. **Filters out** postings that are:
    - not data roles,
    - above your seniority (Senior, Lead, Staff, Principal, Manager...) or require too many years of
@@ -80,7 +81,20 @@ does not fit, and scores the rest so the best matches are at the top.
    - paying below your salary floor (when the salary is published).
 3. **Scores** the remaining ones from 0 to 100 based on skill match, seniority fit, salary, location and
    language.
-4. **Writes** a ranked report to `output/`, plus a summary of why postings were rejected.
+4. **Writes** a ranked report to `output/`.
+
+### Features at a glance
+
+| Feature | What you get | Details |
+|---|---|---|
+| Ranked matches | Postings that pass every filter, best first | [How a posting is scored](#how-a-posting-is-scored) |
+| Missing skills per posting | For each match: the skills it asks for that your profile lacks, to prepare before applying | [Missing skills per posting](#missing-skills-per-posting) |
+| Near misses | Postings blocked by a single, negotiable detail ("Senior" title, 6 years instead of 5...) | [Near misses](#near-misses) |
+| Skill gaps | The skills the market asks for most that your profile does not list | [Skill gaps](#skill-gaps) |
+| New since last run | `new` flag on postings you have not seen before | [What to expect](#what-to-expect) |
+| Market snapshot | Remote data postings by seniority and by role, with each role's most requested skills | [Remote data job market](#remote-data-job-market) |
+| Agent-first workflow | Your AI agent converts your resume, builds your profile and runs everything | [Agent-first quick start](#agent-first-quick-start) |
+| Never applies | Read-only: applying is always your decision | [What it does not do](#what-it-does-not-do) |
 
 ## What it does not do
 
@@ -170,6 +184,8 @@ python -m jobfinder.resume                  # convert your-resume/<file> to your
 python -m jobfinder                         # uses ./config.yaml
 python -m jobfinder --config other.yaml     # use another config file
 python -m jobfinder -v                      # verbose logging
+python -m jobfinder.market                  # market snapshot (independent of your profile)
+python -m jobfinder.market --min-share 0.6  # only list skills present in 60%+ of a role's postings
 ```
 
 On Windows, if accented characters look broken in the console, run
@@ -193,15 +209,17 @@ On Windows, if accented characters look broken in the console, run
 
 - **Reports** in `output/`:
   - `jobs-<date>.md` with four sections:
-    1. **Matches**: the top postings as a table (score, role, company, location, USD/month, flags, link).
-    2. **Near misses**: postings that failed a single *soft* filter by a small margin, with the blocker. See
-       [Near misses](#near-misses).
+    1. **Matches**: the top postings as a table (score, role, company, location, USD/month, flags,
+       missing skills, link). See [Missing skills per posting](#missing-skills-per-posting).
+    2. **Near misses**: postings that failed a single *soft* filter by a small margin, with the blocker and
+       their missing skills. See [Near misses](#near-misses).
     3. **Skill gaps**: skills that eligible postings ask for and your profile does not list. See
        [Skill gaps](#skill-gaps).
     4. **Rejected by reason**: how many postings each filter removed.
-  - `jobs-<date>.csv`: every kept posting with matched skills, source and publication date. Opens in Excel
-    (UTF-8 with BOM).
+  - `jobs-<date>.csv`: every kept posting with matched skills, missing skills, source and publication date.
+    Opens in Excel (UTF-8 with BOM).
   - `seen.json`: postings seen in previous runs, used to flag new ones (see `insights.track_new`).
+  - `market-<date>.md`: written by `python -m jobfinder.market` (see [Remote data job market](#remote-data-job-market)).
 - **Flags** in the report:
 
   | Flag | Meaning |
@@ -244,8 +262,21 @@ Every data role gets a score from 0 to 100 (so near misses can be ranked too):
 | Location | Preferred region named | Other allowed or neutral location |
 | Language | Spanish posting | English without demanding requirements (lower if demanding) |
 
-Duplicates (same company and title from different sources) are merged, keeping the best score.
 Postings below `output.min_score` are not shown.
+
+### Duplicates
+
+The same posting often comes back several times: from overlapping queries of one source (Himalayas returns it for
+"data analyst" and for "data scientist") and from different sources (a company's Lever page and Himalayas).
+Postings are merged when their **normalized company and title** match, keeping the best-scored copy:
+
+- Company: case, spaces, punctuation, accents and legal suffixes are ignored, so `Mutt Data`, `muttdata` and
+  `MuttData Inc.` are one company, and so are `Grafana Labs` and the slug `grafanalabs`.
+- Title: case, punctuation, accents and the words "remote"/"remoto" are ignored, so `Data Engineer (Remote)` and
+  `data engineer` are one posting. Different titles stay different (`Data Engineer` vs `Senior Data Engineer`).
+
+The same rule is used everywhere: matches, near misses, skill gaps, the market snapshot and new-posting tracking.
+In a test run, 1,948 fetched postings (1,619 distinct URLs) became 1,560 unique postings.
 
 ### Near misses
 
@@ -274,6 +305,125 @@ for them.
 - A gap can mean you lack the skill **or** that your profile forgot it. If a "gap" is on your resume, add it to
   `profile.skills`.
 - Tune it with `insights.gaps_top_n` and `insights.gaps_min_count`, or extend the catalog with the tools of your niche.
+
+Example of the section (illustrative numbers):
+
+| Skill | Postings | Share |
+|---|---|---|
+| Databricks | 25 | 23% |
+| CI/CD | 25 | 23% |
+| LangChain | 18 | 17% |
+| Apache Spark | 17 | 16% |
+
+Read it as a learning backlog: the higher the share, the more doors that skill opens.
+
+### Missing skills per posting
+
+Skill gaps are the big picture; when you are about to **apply**, what matters is the specific posting. Every match and
+every near miss has a **Missing skills** column: the catalog skills that posting mentions and your profile does not
+list (up to five, then `(+N)`; the CSV has the full list). `—` means the posting asks for nothing you lack.
+
+Example (illustrative):
+
+| Score | Role | Company | ... | Missing skills | URL |
+|---|---|---|---|---|---|
+| 81.7 | Data Engineer, AI & Analytics | Acme Analytics | ... | Snowflake, CI/CD, Data quality / governance (+2) | https://... |
+| 80.5 | AI Scientist (LATAM) | Example Labs | ... | Apache Spark, A/B testing | https://... |
+| 74.0 | Data Analyst | Sample Co | ... | — | https://... |
+
+How to use it before applying:
+
+1. **One or two missing skills** are normal. Prepare a short, honest answer for each ("I haven't used Snowflake in
+   production; I work daily with BigQuery, which covers the same warehouse concepts").
+2. **Adjacent skills** you already have (BigQuery for Snowflake, Power BI for Tableau) are worth naming in your cover
+   letter or first call.
+3. **Many missing skills** usually mean a different role family than yours: check the score and the near-miss
+   blocker before investing time.
+4. If a "missing" skill is actually on your resume, add it to `profile.skills`: your profile forgot it.
+
+## Remote data job market
+
+`python -m jobfinder.market` classifies **every remote data posting** returned by the enabled sources, regardless of
+your profile, and writes `output/market-<date>.md`: postings by seniority, by role, and the skills each role asks
+for. Use it to see where the market is and which skills each role expects.
+
+**How it is built**
+
+- *Remote*: the source marks the posting as remote, or its location says remote/anywhere/worldwide. This includes
+  remote positions restricted to one country.
+- *Data role*: the title is classified into a role family (Data Analyst, Data Scientist, Data Engineer, Analytics
+  Engineer, ML Engineer / MLOps, AI / LLM Engineer, BI, Data Architect, Data Governance). Titles that only mention
+  data or AI (sales, product management, data-labeling gigs, data-center engineering) are excluded.
+- *Seniority*: from the title ("Senior", "Lead", "Semi Senior", "II"...), falling back to the level the source
+  reports; otherwise "Not stated".
+- *Skills*: catalog skills mentioned in the posting; a skill is listed for a role when it appears in at least
+  `--min-share` of that role's postings (default 40%).
+- Postings are deduplicated (see [Duplicates](#duplicates)).
+
+**Limits.** This is a snapshot of the enabled sources, not of the whole market: it leans towards remote-first job
+boards and the companies in your config, and it changes week to week. Skill detection is keyword-based, so a skill a
+posting implies but does not name is not counted.
+
+### Snapshot: 2026-11-17
+
+276 remote data postings (deduplicated) from the default sources.
+
+**Remote data postings by seniority**
+
+| Seniority | Postings | Share |
+|---|---|---|
+| Junior | 15 | 5% |
+| Mid | 60 | 22% |
+| Senior | 116 | 42% |
+| Lead / Staff / Manager | 44 | 16% |
+| Not stated | 41 | 15% |
+
+Senior roles dominate (42%), and only 1 in 20 remote data postings is explicitly junior. Mid-level ("Semi Senior",
+"II") is the second largest group.
+
+**Data roles and their most requested skills**
+
+Skills mentioned in at least 30% of each role's postings; those in **60% or more** are in bold. Roles with fewer than
+five postings are omitted.
+
+| Role | Postings | Most requested skills |
+|---|---|---|
+| Data Scientist | 66 | **Machine learning (76%)**, **Python (68%)**, **Statistics (61%)**, SQL (53%), A/B testing (33%) |
+| Data Engineer | 53 | **Python (64%)**, SQL (57%), AWS (45%), dbt (38%), Apache Spark (38%), GCP (36%), Azure (36%), Data quality / governance (36%) |
+| Data Analyst | 52 | SQL (58%), Data quality / governance (44%), Python (40%), Excel (38%), Statistics (38%), Power BI (33%), Tableau (33%) |
+| ML Engineer / MLOps | 29 | **Machine learning (93%)**, **Python (72%)**, AWS (34%), PyTorch (34%), MLOps (31%), SQL (31%), LLM (31%) |
+| Analytics Engineer | 26 | **SQL (81%)**, **Python (73%)**, dbt (58%), Data modeling (54%), Data quality / governance (42%), Tableau (35%), Looker (31%), Snowflake (31%) |
+| BI Analyst / Developer | 24 | **SQL (67%)**, Power BI (46%), Tableau (42%), Data modeling (42%), Data quality / governance (42%), Python (33%) |
+| AI / LLM Engineer | 20 | **LLM (80%)**, **RAG (75%)**, **Python (70%)**, **AI agents (70%)**, **LangChain (65%)**, **LLM provider APIs (60%)**, Observability (55%), MCP (45%) |
+
+In short:
+
+- **Data Analyst:** SQL, Python, Excel, Power BI / Tableau, statistics.
+- **Data Scientist:** machine learning, Python, statistics, SQL.
+- **Data Engineer:** Python, SQL, a cloud (AWS, GCP or Azure), dbt, Spark.
+- **Analytics Engineer:** SQL, Python, dbt, data modeling.
+- **BI Analyst / Developer:** SQL, Power BI or Tableau, data modeling.
+- **ML Engineer / MLOps:** machine learning, Python, a cloud, PyTorch, MLOps.
+- **AI / LLM Engineer:** LLMs, RAG, Python, AI agents, LangChain, LLM provider APIs. The most demanding and most
+  uniform skill set, and no junior or mid openings in this snapshot.
+
+Only AI / LLM Engineer has several skills above 60%; the other roles ask for a broader mix, so their lists use the
+30% threshold to stay useful. Refresh the snapshot with `python -m jobfinder.market --min-share 0.3`.
+
+**Seniority by role**
+
+| Role | Junior | Mid | Senior | Lead / Staff / Manager | Not stated |
+|---|---|---|---|---|---|
+| Data Scientist | 4 | 14 | 29 | 8 | 11 |
+| Data Engineer | 0 | 14 | 25 | 9 | 5 |
+| Data Analyst | 8 | 8 | 10 | 9 | 17 |
+| ML Engineer / MLOps | 1 | 6 | 14 | 5 | 3 |
+| Analytics Engineer | 0 | 4 | 18 | 3 | 1 |
+| BI Analyst / Developer | 2 | 14 | 2 | 4 | 2 |
+| AI / LLM Engineer | 0 | 0 | 15 | 3 | 2 |
+
+Data Analyst and BI are the most accessible families below senior level; Analytics Engineer and AI / LLM Engineer
+are almost entirely senior.
 
 ## Sources
 
@@ -479,7 +629,8 @@ job-finder/
 │   ├── models.py        # Job dataclass
 │   ├── sources.py       # one fetcher per source (read-only HTTP)
 │   ├── scoring.py       # pure filtering and scoring rules (all reasons, near misses)
-│   ├── insights.py      # skill gaps and new-since-last-run tracking
+│   ├── insights.py      # skill gaps, missing skills per posting, new-since-last-run tracking
+│   ├── market.py        # remote data market snapshot (python -m jobfinder.market)
 │   ├── resume.py        # resume -> Markdown with MarkItDown
 │   ├── cli.py           # orchestration and report writing
 │   └── __main__.py      # python -m jobfinder
@@ -487,7 +638,9 @@ job-finder/
 │   ├── test_scoring.py  # unit tests for the rules
 │   ├── test_resume.py   # resume conversion tests
 │   ├── test_sources.py  # source mapping tests
-│   └── test_insights.py # near misses, skill gaps, new postings, report sections
+│   ├── test_insights.py # near misses, skill gaps, new postings, report sections
+│   ├── test_market.py   # role/seniority classification, market snapshot, missing skills
+│   └── test_dedup.py    # duplicate detection across sources
 ├── skills_catalog.yaml  # generic skill catalog for skill-gap analysis
 ├── config.example.yaml  # committed template, no personal data
 ├── config.yaml          # YOUR profile (git-ignored)
@@ -504,5 +657,6 @@ python -m pytest
 
 The tests cover salary parsing and normalization, seniority rules (including "Semi Senior"), location
 restrictions, years of experience, language detection, freshness, near misses, skill gaps, new-posting tracking,
-report sections, source mapping and resume conversion. They use
+report sections, missing skills per posting, duplicate detection, the market snapshot (role and seniority
+classification), source mapping and resume conversion. They use
 `config.example.yaml` and temporary folders, so they never depend on your private config or resume.

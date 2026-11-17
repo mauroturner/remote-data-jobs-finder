@@ -159,3 +159,20 @@ def test_report_has_near_miss_and_skill_gap_sections(cfg, tmp_path):
     assert "## Near misses" in text and "seniority in title" in text
     assert "## Skill gaps" in text and "| Snowflake | 3 | 50% |" in text and "6 eligible data postings" in text
     assert "- too old: 2" in text
+
+
+def test_report_shows_missing_skills_per_posting(cfg, tmp_path):
+    from collections import Counter
+
+    from jobfinder.cli import write_reports
+
+    match = evaluate(make(company="A"), cfg, NOW)
+    match.missing_skills = ["Snowflake", "dbt", "Airflow", "Spark", "Kafka", "Docker"]
+    near = evaluate(make(company="B", title="Senior Data Analyst"), cfg, NOW)
+    near.missing_skills = []
+    csv_path, md = write_reports([match], [near], [], 1, Counter(), tmp_path, top_n=10)
+    text = md.read_text(encoding="utf-8")
+    assert "| Missing skills |" in text
+    assert "Snowflake, dbt, Airflow, Spark, Kafka (+1)" in text
+    assert "| — |" in text
+    assert "missing_skills" in csv_path.read_text(encoding="utf-8-sig").splitlines()[0]
