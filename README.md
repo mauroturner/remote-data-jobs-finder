@@ -12,8 +12,34 @@ postings that actually fit, instead of scrolling through hundreds that don't.
 
 ---
 
+## Agent-first quick start
+
+This repository is designed to be driven by an AI coding agent (Claude Code, Codex, OpenCode, Cursor...).
+The agent's instructions live in [`AGENTS.md`](AGENTS.md) (`CLAUDE.md` imports it).
+
+1. Clone the repository and open it with your agent.
+2. Drop your resume (PDF, DOCX...) into [`your-resume/`](your-resume/).
+3. Ask your agent: *"Find jobs that fit my resume"*. In Claude Code you can also run `/find-jobs`.
+
+The agent will then:
+
+1. install the dependencies if needed,
+2. convert your resume to Markdown with [MarkItDown](https://github.com/microsoft/markitdown)
+   (`python -m jobfinder.resume`),
+3. read `your-resume/resume.md` and build your private `config.yaml` (skills, role families, experience),
+4. ask you only what the resume cannot tell (salary floor, seniority, eligible regions, English level),
+5. run the search (`python -m jobfinder`) and present the best matches with fit verdicts and gaps,
+6. propose one filter change at a time if there are too few results.
+
+The agent never applies to jobs and never commits your resume, config or reports.
+
+Prefer doing it by hand? Follow [Installation](#installation) and [Usage](#usage) below.
+
+---
+
 ## Table of contents
 
+- [Agent-first quick start](#agent-first-quick-start)
 - [Why this exists](#why-this-exists)
 - [What it does](#what-it-does)
 - [What it does not do](#what-it-does-not-do)
@@ -74,8 +100,8 @@ does not fit, and scores the rest so the best matches are at the top.
 | Internet access | — | Only outgoing HTTPS GET requests to the sources listed below |
 | Git | optional | Only if you version the project |
 
-Python dependencies (see `requirements.txt`): `requests`, `PyYAML`, and `pytest` for the tests.
-No API keys or accounts are needed.
+Python dependencies (see `requirements.txt`): `requests`, `PyYAML`, `markitdown[pdf,docx]` (resume
+conversion), and `pytest` for the tests. No API keys or accounts are needed.
 
 ## Installation
 
@@ -137,6 +163,7 @@ Tips:
 ## Usage
 
 ```bash
+python -m jobfinder.resume                  # convert your-resume/<file> to your-resume/resume.md
 python -m jobfinder                         # uses ./config.yaml
 python -m jobfinder --config other.yaml     # use another config file
 python -m jobfinder -v                      # verbose logging
@@ -289,6 +316,7 @@ Everything derived from you stays local. `.gitignore` excludes:
 
 | Ignored | Why |
 |---|---|
+| `your-resume/*` (except its README) | Your resume and the generated `resume.md` |
 | `config.yaml`, `config.*.yaml` (except the example), `*.local.yaml` | Your skills, salary, seniority and location criteria |
 | `.env`, `.env.*` | Any future secrets |
 | `output/`, `*.csv` | Reports are job lists built from your profile |
@@ -326,14 +354,22 @@ stays in history: rewrite history or treat the data as exposed.
 
 ```text
 job-finder/
+├── AGENTS.md            # instructions for the user's AI agent
+├── CLAUDE.md            # imports AGENTS.md for Claude Code
+├── .claude/commands/
+│   └── find-jobs.md     # /find-jobs slash command (Claude Code)
+├── your-resume/         # drop your resume here (contents git-ignored)
+│   └── README.md
 ├── jobfinder/
 │   ├── models.py        # Job dataclass
 │   ├── sources.py       # one fetcher per source (read-only HTTP)
 │   ├── scoring.py       # pure filtering and scoring rules
+│   ├── resume.py        # resume -> Markdown with MarkItDown
 │   ├── cli.py           # orchestration and report writing
 │   └── __main__.py      # python -m jobfinder
 ├── tests/
-│   └── test_scoring.py  # unit tests for the rules
+│   ├── test_scoring.py  # unit tests for the rules
+│   └── test_resume.py   # resume conversion tests
 ├── config.example.yaml  # committed template, no personal data
 ├── config.yaml          # YOUR profile (git-ignored)
 ├── output/              # generated reports (git-ignored)
@@ -348,5 +384,5 @@ python -m pytest
 ```
 
 The tests cover salary parsing and normalization, seniority rules (including "Semi Senior"), location
-restrictions, years of experience, language detection and freshness. They use `config.example.yaml`, so
-they never depend on your private config.
+restrictions, years of experience, language detection, freshness and resume conversion. They use
+`config.example.yaml` and temporary folders, so they never depend on your private config or resume.

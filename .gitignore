@@ -11,12 +11,19 @@ config.*.yaml
 output/
 *.csv
 
-# CVs and personal documents
+# Your resume and its generated Markdown (only the folder's README is versioned)
+your-resume/*
+!your-resume/README.md
+
+# CVs and personal documents anywhere else
 *.pdf
 *.doc
 *.docx
 cv/
 resume/
+
+# ---- Local agent tooling caches ----
+.atl/
 
 # ---- Python ----
 __pycache__/

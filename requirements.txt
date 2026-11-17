@@ -1,5 +1,6 @@
 requests>=2.31
 PyYAML>=6.0
+markitdown[pdf,docx]>=0.1.5,<0.2
 pytest>=8.0
 # Optional, LinkedIn/Indeed scraping (ToS risk). Note the name: python-jobspy, NOT jobspy.
 # python-jobspy==1.4.1
