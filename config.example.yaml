@@ -71,6 +71,12 @@ http:
   user_agent: job-finder/0.1
   timeout: 20
 
+link_check:   # open each listed posting once and drop the ones that are clearly closed (404, "no longer accepting")
+  enabled: true
+  timeout: 10
+  workers: 6        # parallel requests
+  max_links: 200    # matches first, then near misses
+
 output:
   dir: output
   top_n: 40

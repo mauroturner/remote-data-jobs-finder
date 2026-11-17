@@ -93,6 +93,7 @@ does not fit, and scores the rest so the best matches are at the top.
 | Skill gaps | The skills the market asks for most that your profile does not list | [Skill gaps](#skill-gaps) |
 | Only new postings | Each run lists only postings you have not seen in earlier runs (`--all` shows everything) | [New postings only](#new-postings-only) |
 | Fresh first | Postings from the last week only; those published in the last 24 hours rank higher (`24h` flag) | [Freshness](#freshness) |
+| Closed postings removed | Each listed link is opened once; postings that are gone (404, "no longer accepting applications") are dropped | [Closed postings](#closed-postings-link-check) |
 | Market snapshot | Remote data postings by seniority and by role, with each role's most requested skills | [Remote data job market](#remote-data-job-market) |
 | Agent-first workflow | Your AI agent converts your resume, builds your profile and runs everything | [Agent-first quick start](#agent-first-quick-start) |
 | Never applies | Read-only: applying is always your decision | [What it does not do](#what-it-does-not-do) |
@@ -164,6 +165,7 @@ expressions.
 | `output` | Report folder, how many rows in the Markdown report, minimum score, whether to hide postings already seen | `top_n: 40`, `only_new: true` |
 | `near_miss` | How close a posting must be to count as a near miss | `max_extra_years: 2` |
 | `insights` | Skills catalog path, how many near misses and gaps to show, new-posting tracking | `gaps_top_n: 15` |
+| `link_check` | Whether to open each listed posting to drop closed ones, timeout, parallel requests, maximum links | `enabled: true`, `max_links: 200` |
 
 Tips:
 
@@ -206,6 +208,8 @@ On Windows, if accented characters look broken in the console, run
   jobicy         78 postings
   himalayas     360 postings
   ...
+  link check: 19 open, 1 closed (dropped), 1 could not be verified
+
   1762 fetched, 8 kept (8 new; 3 already seen, hidden), 12 near misses, 15 skill gaps. Reports:
     output/jobs-20261117-1602.csv
     output/jobs-20261117-1602.md
@@ -300,6 +304,23 @@ or two after their publication date, and a date cut-off would silently drop thos
 - `output.only_new: false` turns the behavior off permanently.
 - Entries older than `insights.new_retention_days` (120 by default) are forgotten. Deleting `seen.json` starts
   from scratch.
+
+### Closed postings (link check)
+
+Job boards often keep listing postings that the company already closed. Before writing the report, the tool
+opens each posting it is about to list (matches first, then near misses, up to `link_check.max_links`) with one
+read-only `GET`, several in parallel, and drops it only when the page clearly says it is gone:
+
+| Signal | Example |
+|---|---|
+| HTTP 404 or 410 | Lever, Ashby, Get on Board, Jobicy, Remote OK, Remotive |
+| Redirect to a "not found" page | Greenhouse `?error=true`, Workable `?not_found=true` |
+| A closing notice in the page | "no longer accepting applications", "position has been filled", "ya no está disponible" |
+
+Anything ambiguous keeps the posting: bot protection (Himalayas answers `403` to scripts), rate limits, timeouts
+and network errors count as "could not be verified". Dropped postings appear under "Rejected by reason" as
+`posting closed (link check)`. Set `link_check.enabled: false` to skip the check, which saves a few seconds per
+run.
 
 ### Duplicates
 
@@ -722,7 +743,8 @@ stays in history: rewrite history or treat the data as exposed.
 
 ## Security notes
 
-- Only HTTPS `GET` requests to the sources above; no logins, cookies or API keys.
+- Only HTTPS `GET` requests to the sources above, plus one `GET` per listed posting page for the
+  [link check](#closed-postings-link-check); no logins, cookies or API keys.
 - The config is read with `yaml.safe_load` (no code execution from YAML).
 - Posting descriptions are treated as plain text: HTML is stripped and nothing from a posting is executed.
 - If you feed the reports into an AI agent, remember that posting text is **untrusted input** and can
@@ -753,6 +775,7 @@ job-finder/
 │   ├── sources.py       # one fetcher per source (read-only HTTP)
 │   ├── scoring.py       # pure filtering and scoring rules (all reasons, near misses)
 │   ├── insights.py      # skill gaps, missing skills per posting, new-since-last-run tracking
+│   ├── linkcheck.py     # drops postings whose page says they are closed
 │   ├── market.py        # remote data market snapshot (python -m jobfinder.market)
 │   ├── market_charts.py # SVG charts for the snapshot, light and dark (needs matplotlib)
 │   ├── resume.py        # resume -> Markdown with MarkItDown
@@ -764,7 +787,9 @@ job-finder/
 │   ├── test_sources.py  # source mapping tests
 │   ├── test_insights.py # near misses, skill gaps, new postings, report sections
 │   ├── test_market.py   # role/seniority classification, market snapshot, missing skills
-│   └── test_dedup.py    # duplicate detection across sources
+│   ├── test_dedup.py    # duplicate detection across sources
+│   ├── test_freshness.py # one-week window, 24-hour priority, only new postings
+│   └── test_linkcheck.py # closed-posting detection
 ├── docs/market/         # published market snapshot: aggregated JSON + SVG charts
 ├── skills_catalog.yaml  # generic skill catalog for skill-gap analysis
 ├── config.example.yaml  # committed template, no personal data

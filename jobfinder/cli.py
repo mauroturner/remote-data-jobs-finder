@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from .insights import SkillGap, annotate_missing, mark_new, skill_gaps
+from .linkcheck import check_links
 from .models import Job
 from .scoring import evaluate
 from .sources import SOURCES, Http
@@ -174,6 +175,16 @@ def main(argv: list[str] | None = None) -> int:
             hidden_seen = sum(not j.is_new for j in kept + near)
             kept = [j for j in kept if j.is_new]
             near = [j for j in near if j.is_new]
+
+    links = check_links(kept + near, cfg.get("link_check", {}),
+                        user_agent=cfg.get("http", {}).get("user_agent", "job-finder/0.1"))
+    if links:
+        kept = [j for j in kept if j.link_status != "closed"]
+        near = [j for j in near if j.link_status != "closed"]
+        if links["closed"]:
+            rejected["posting closed (link check)"] += links["closed"]
+        log.info("link check: %d open, %d closed (dropped), %d could not be verified",
+                 links["open"], links["closed"], links["unknown"])
 
     csv_path, md_path = write_reports(kept, near, gaps, eligible_count, rejected, out_dir, out.get("top_n", 40),
                                       hidden_seen)
