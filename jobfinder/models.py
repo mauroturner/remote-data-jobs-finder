@@ -38,6 +38,7 @@ class Job:
     near_miss: bool = False  # failed exactly one soft filter by a small margin
     eligible: bool = False  # data role in an eligible location (used for skill-gap statistics)
     is_new: bool = False  # not seen in previous runs
+    internship: bool = False  # internship, trainee, new-grad or no-experience role (see config "internships")
     link_status: str = ""  # "open" | "closed" | "unknown" after the link check; "" = not checked
 
     @property

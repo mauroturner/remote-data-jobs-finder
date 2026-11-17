@@ -38,6 +38,12 @@ near_miss:   # postings that fail ONE soft filter by a small margin are listed s
   salary_tolerance: 0.15        # salary up to 15% below min_monthly_usd
   include_senior_titles: true   # plain "Senior"/"Sr." titles (never lead/staff/principal/manager)
 
+internships:   # first-experience roles, listed in their own report section
+  enabled: true                 # salary and seniority filters do not apply to them; data role, location and age do
+  title: ['\bintern(ship)?s?\b', 'pasant', 'trainee', 'aprendiz', 'becari[oa]', 'estagi', 'apprentice', 'new grad', 'graduate (program|scheme)', 'pr[aá]cticas? profesional', 'practicante']
+  hint: ['no experience', 'sin experiencia', 'intern', 'trainee', 'new grad']   # level labels given by the source
+  top_n: 20
+
 insights:
   skills_catalog: skills_catalog.yaml   # generic skill list used to compute skill gaps
   gaps_top_n: 15
@@ -59,12 +65,14 @@ sources:
   jobicy:     {enabled: true, industry: data-science, geos: [null, latam, argentina]}
   himalayas:  {enabled: true, pages: 3, queries: [data analyst, data scientist, data engineer, machine learning, analytics engineer, business intelligence]}
   remoteok:   {enabled: true, tags: [data, analyst, machine-learning]}
-  getonbrd:   {enabled: true, categories: [data-science-analytics, machine-learning-ai], pages: 3}
+  getonbrd:   {enabled: true, categories: [data-science-analytics, machine-learning-ai], pages: 3, queries: [trainee, practicante, pasante]}
   # Company portals (see README "Company career portals"). Slug = last part of the careers URL.
   greenhouse: {enabled: true, companies: [gitlab, wizeline, canonical, grafanalabs]}   # job-boards.greenhouse.io/<slug>
   lever:      {enabled: true, companies: [toptal, muttdata, despegar]}                 # jobs.lever.co/<slug>
   ashby:      {enabled: true, companies: [supabase, posthog, n8n, airbyte]}            # jobs.ashbyhq.com/<slug>
   workable:   {enabled: true, companies: [platzi]}                                     # apply.workable.com/<slug>
+  # Internship and new-grad lists maintained by SimplifyJobs on GitHub (mostly US; ~13 MB per list per run).
+  simplify:   {enabled: true, lists: [Summer2027-Internships, New-Grad-Positions], categories: [AI/ML/Data], remote_only: true}
   jobspy:     {enabled: false}   # LinkedIn/Indeed scraping: may violate their ToS, off by default
 
 http:

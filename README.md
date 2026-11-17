@@ -93,6 +93,7 @@ does not fit, and scores the rest so the best matches are at the top.
 | Skill gaps | The skills the market asks for most that your profile does not list | [Skill gaps](#skill-gaps) |
 | Only new postings | Each run lists only postings you have not seen in earlier runs (`--all` shows everything) | [New postings only](#new-postings-only) |
 | Fresh first | Postings from the last week only; those published in the last 24 hours rank higher (`24h` flag) | [Freshness](#freshness) |
+| Internships | Internship, trainee, new-grad and no-experience data roles in their own section, without salary or seniority filters | [Internships and first-experience roles](#internships-and-first-experience-roles) |
 | Closed postings removed | Each listed link is opened once; postings that are gone (404, "no longer accepting applications") are dropped | [Closed postings](#closed-postings-link-check) |
 | Market snapshot | Remote data postings by seniority and by role, with each role's most requested skills | [Remote data job market](#remote-data-job-market) |
 | Agent-first workflow | Your AI agent converts your resume, builds your profile and runs everything | [Agent-first quick start](#agent-first-quick-start) |
@@ -165,6 +166,7 @@ expressions.
 | `output` | Report folder, how many rows in the Markdown report, minimum score, whether to hide postings already seen | `top_n: 40`, `only_new: true` |
 | `near_miss` | How close a posting must be to count as a near miss | `max_extra_years: 2` |
 | `insights` | Skills catalog path, how many near misses and gaps to show, new-posting tracking | `gaps_top_n: 15` |
+| `internships` | Whether to list internships, which titles and source levels count as one, how many to show | `title: ['\bintern(ship)?s?\b', 'pasant']`, `top_n: 20` |
 | `link_check` | Whether to open each listed posting to drop closed ones, timeout, parallel requests, maximum links | `enabled: true`, `max_links: 200` |
 
 Tips:
@@ -216,14 +218,16 @@ On Windows, if accented characters look broken in the console, run
   ```
 
 - **Reports** in `output/`:
-  - `jobs-<date>.md` with four sections:
+  - `jobs-<date>.md` with five sections:
     1. **Matches**: the top postings as a table (score, role, company, location, USD/month, flags,
        missing skills, link). See [Missing skills per posting](#missing-skills-per-posting).
     2. **Near misses**: postings that failed a single *soft* filter by a small margin, with the blocker and
        their missing skills. See [Near misses](#near-misses).
-    3. **Skill gaps**: skills that eligible postings ask for and your profile does not list. See
+    3. **Internships and first-experience roles**: see
+       [Internships and first-experience roles](#internships-and-first-experience-roles).
+    4. **Skill gaps**: skills that eligible postings ask for and your profile does not list. See
        [Skill gaps](#skill-gaps).
-    4. **Rejected by reason**: how many postings each filter removed.
+    5. **Rejected by reason**: how many postings each filter removed.
   - `jobs-<date>.csv`: every kept posting with matched skills, missing skills, source and publication date.
     Opens in Excel (UTF-8 with BOM).
   - `seen.json`: postings seen in previous runs, used to hide them in the next run (see
@@ -304,6 +308,32 @@ or two after their publication date, and a date cut-off would silently drop thos
 - `output.only_new: false` turns the behavior off permanently.
 - Entries older than `insights.new_retention_days` (120 by default) are forgotten. Deleting `seen.json` starts
   from scratch.
+
+### Internships and first-experience roles
+
+A first job is the hardest one to get, so internships get their own report section instead of being thrown away
+by filters written for paid Junior/Mid roles. A posting is listed there when it is a data role and:
+
+- its title says so (`internships.title`): intern, internship, pasante, pasantía, practicante, trainee, aprendiz,
+  becario/a, estagiário, apprentice, new grad, graduate program, prácticas profesionales; or
+- the source labels its level that way (`internships.hint`): Get on Board's "No experience" level, SimplifyJobs'
+  internship and new-grad lists.
+
+The location, remote and age filters still apply. Salary and seniority do not: an internship below your salary
+floor, or rejected by an `intern` pattern in `reject_title`, is still listed here. Rows show the score, the level
+given by the source and the missing skills. They follow the same "new postings only" and link-check rules as
+matches. Set `internships.enabled: false` to remove the section.
+
+| Source | What it adds |
+|---|---|
+| Get on Board keyword searches (`trainee`, `practicante`, `pasante`) | LATAM internships and trainee programs. Most are on-site or hybrid (mainly Chile), so a remote-only profile rarely keeps them |
+| SimplifyJobs internship and new-grad lists | Thousands of active listings; about 40% of the recent ones are in AI/ML/Data. Remote ones are almost always limited to the US, Canada or the UK |
+| All other boards | Any posting whose title or level matches |
+
+**What to expect from LATAM:** remote data internships open to LATAM are rare. In the 17 Nov 2026 run, 75 data
+internships were found: 74 were limited to the US, Canada or the UK, and the only LATAM one was over a week old. For
+programs in Argentina and LATAM, most of them on-site or hybrid, use the manual list in
+[Internship and trainee programs](#internship-and-trainee-programs-manual-search).
 
 ### Closed postings (link check)
 
@@ -595,7 +625,8 @@ unrelated package) and set `sources.jobspy.enabled: true`.
 | [Jobicy](https://jobicy.com) | Remote jobs, filterable by region | industry `data-science`; geos: any, `latam`, `argentina` |
 | [Himalayas](https://himalayas.app) | Remote jobs with salary and seniority data | queries: data analyst, data scientist, data engineer, machine learning, analytics engineer, business intelligence |
 | [RemoteOK](https://remoteok.com) | Remote jobs worldwide | tags `data`, `analyst`, `machine-learning` |
-| [Get on Board](https://www.getonbrd.com) | LATAM tech jobs, many in Spanish | categories `data-science-analytics`, `machine-learning-ai` |
+| [Get on Board](https://www.getonbrd.com) | LATAM tech jobs, many in Spanish | categories `data-science-analytics`, `machine-learning-ai`; keyword searches `trainee`, `practicante`, `pasante` (internships are often filed under other categories) |
+| [SimplifyJobs](https://github.com/SimplifyJobs/Summer2027-Internships) | Internship and new-grad lists curated on GitHub, mostly US | lists `Summer2027-Internships`, `New-Grad-Positions`; category `AI/ML/Data`; active and remote listings only |
 
 ### Company career portals (ATS)
 
@@ -654,10 +685,10 @@ Salary references for Argentina, useful to set `min_monthly_usd`:
 
 ### Internship and trainee programs (manual search)
 
-Also from [natayadev/portales-empleo](https://github.com/natayadev/portales-empleo). The tool filters out
-internships by default (`reject_title` contains `intern`, `pasant`, `trainee`, `aprendiz`); remove those
-patterns from your `config.yaml` if you are looking for one. Programs open and close every year, so check the
-dates on each page.
+Also from [natayadev/portales-empleo](https://github.com/natayadev/portales-empleo). These programs publish on
+their own sites, so the tool cannot read them. Internships it can read are listed automatically in their own
+report section (see [Internships and first-experience roles](#internships-and-first-experience-roles)).
+Programs open and close every year, so check the dates on each page.
 
 | Company | Program | Scope | Modality | Location | Link |
 |---|---|---|---|---|---|
@@ -789,6 +820,7 @@ job-finder/
 │   ├── test_market.py   # role/seniority classification, market snapshot, missing skills
 │   ├── test_dedup.py    # duplicate detection across sources
 │   ├── test_freshness.py # one-week window, 24-hour priority, only new postings
+│   ├── test_internships.py # internship detection, report section, SimplifyJobs and Get on Board searches
 │   └── test_linkcheck.py # closed-posting detection
 ├── docs/market/         # published market snapshot: aggregated JSON + SVG charts
 ├── skills_catalog.yaml  # generic skill catalog for skill-gap analysis

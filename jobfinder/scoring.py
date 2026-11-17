@@ -163,6 +163,15 @@ def freshness_points(job: Job, max_age_days: int | None, now: datetime | None = 
     return max(0.0, 1 - (hours - 24) / window) if window > 0 else 0.0
 
 
+def is_internship(job: Job, cfg: dict[str, Any]) -> bool:
+    """Internship, trainee, new-grad or no-experience role, by title or by the level the source reports."""
+    opts = cfg.get("internships") or {}
+    if not opts.get("enabled", False):
+        return False
+    return bool(_any_match(opts.get("title", []), job.title or "")
+                or (job.seniority_hint and _any_match(opts.get("hint", []), job.seniority_hint)))
+
+
 _PLAIN_SENIOR_RE = re.compile(r"^\s*(senior|sr\.?)\b", re.IGNORECASE)
 
 
@@ -196,6 +205,7 @@ def evaluate(job: Job, cfg: dict[str, Any], now: datetime | None = None) -> Job:
         return _finish(job, [("not a data role", False)])
     if hit := _any_match(filters.get("title_exclude", []), title):
         return _finish(job, [(f"title excluded ({hit})", False)])
+    job.internship = is_internship(job, cfg)
 
     # 2. Seniority. A plain "Senior" (not lead/staff/manager...) or a few extra years is a soft failure.
     sen = filters["seniority"]

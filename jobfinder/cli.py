@@ -75,7 +75,8 @@ def _missing(job: Job, limit: int = 5) -> str:
 
 
 def write_reports(kept: list[Job], near: list[Job], gaps: list[SkillGap], eligible_count: int,
-                  rejected: Counter, out_dir: Path, top_n: int, hidden_seen: int = 0) -> tuple[Path, Path]:
+                  rejected: Counter, out_dir: Path, top_n: int, hidden_seen: int = 0,
+                  interns: list[Job] | None = None) -> tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     csv_path, md_path = out_dir / f"jobs-{stamp}.csv", out_dir / f"jobs-{stamp}.md"
@@ -114,6 +115,19 @@ def write_reports(kept: list[Job], near: list[Job], gaps: list[SkillGap], eligib
                          f"| {j.url} |")
     else:
         lines.append("None this run.")
+
+    if interns is not None:
+        lines += ["", "## Internships and first-experience roles", "",
+                  "Internships, trainee, new-grad and no-experience data roles in an eligible location. Salary and "
+                  "seniority filters do not apply here: they are for getting a first experience.", ""]
+        if interns:
+            lines += ["| Score | Role | Company | Location | USD/month | Level | Missing skills | URL |",
+                      "|---|---|---|---|---|---|---|---|"]
+            for j in interns:
+                lines.append(f"| {j.score} | {_cell(j.title)} | {_cell(j.company)} | {_cell(j.location)} "
+                             f"| {_salary(j)} | {_cell(j.seniority_hint or '—')} | {_missing(j)} | {j.url} |")
+        else:
+            lines.append("No internships this run.")
 
     lines += ["", "## Skill gaps", "",
               f"Skills requested by the {eligible_count} eligible data postings (data role, eligible location, any "
@@ -158,37 +172,46 @@ def main(argv: list[str] | None = None) -> int:
     kept = [j for j in by_score([j for j in evaluated if not j.reject_reason]) if j.score >= min_score]
     near = by_score([j for j in evaluated if j.near_miss])[: ins.get("near_miss_top_n", 15)]
     rejected = Counter(j.reject_reason.split(" (")[0] for j in evaluated if j.reject_reason)
+    intern_opts = cfg.get("internships") or {}
+    interns = None
+    if intern_opts.get("enabled", False):
+        interns = by_score([j for j in evaluated if j.internship and j.eligible and "too old" not in j.reasons])
+        interns = interns[: intern_opts.get("top_n", 20)]
 
     catalog = load_catalog(Path(ins.get("skills_catalog", "skills_catalog.yaml")))
     gaps = skill_gaps(evaluated, catalog, cfg["profile"]["skills"], ins.get("gaps_min_count", 2))
     gaps = gaps[: ins.get("gaps_top_n", 15)]
-    annotate_missing(kept + near, catalog, cfg["profile"]["skills"])
+    annotate_missing(kept + near + (interns or []), catalog, cfg["profile"]["skills"])
     eligible_count = len({j.dedup_key for j in evaluated if j.eligible})
 
     hidden_seen = 0
     if ins.get("track_new", True):
-        mark_new(kept + near, out_dir / "seen.json", retention_days=ins.get("new_retention_days", 120))
+        mark_new(kept + near + (interns or []), out_dir / "seen.json",
+                 retention_days=ins.get("new_retention_days", 120))
         for j in kept:
             if j.is_new:
                 j.flags.insert(0, "new")
         if out.get("only_new", True) and not args.all:
-            hidden_seen = sum(not j.is_new for j in kept + near)
+            hidden_seen = len({id(j) for j in kept + near + (interns or []) if not j.is_new})
             kept = [j for j in kept if j.is_new]
             near = [j for j in near if j.is_new]
+            interns = None if interns is None else [j for j in interns if j.is_new]
 
-    links = check_links(kept + near, cfg.get("link_check", {}),
+    to_check = list({id(j): j for j in kept + near + (interns or [])}.values())  # a posting can be in two lists
+    links = check_links(to_check, cfg.get("link_check", {}),
                         user_agent=cfg.get("http", {}).get("user_agent", "job-finder/0.1"))
     if links:
         kept = [j for j in kept if j.link_status != "closed"]
         near = [j for j in near if j.link_status != "closed"]
+        interns = None if interns is None else [j for j in interns if j.link_status != "closed"]
         if links["closed"]:
             rejected["posting closed (link check)"] += links["closed"]
         log.info("link check: %d open, %d closed (dropped), %d could not be verified",
                  links["open"], links["closed"], links["unknown"])
 
     csv_path, md_path = write_reports(kept, near, gaps, eligible_count, rejected, out_dir, out.get("top_n", 40),
-                                      hidden_seen)
-    log.info("\n%d fetched, %d kept (%d new; %d already seen, hidden), %d near misses, %d skill gaps. Reports:"
-             "\n  %s\n  %s", len(raw), len(kept), sum(j.is_new for j in kept), hidden_seen, len(near), len(gaps),
-             csv_path, md_path)
+                                      hidden_seen, interns)
+    log.info("\n%d fetched, %d kept (%d new; %d already seen, hidden), %d near misses, %d internships, "
+             "%d skill gaps. Reports:\n  %s\n  %s", len(raw), len(kept), sum(j.is_new for j in kept), hidden_seen,
+             len(near), len(interns or []), len(gaps), csv_path, md_path)
     return 0

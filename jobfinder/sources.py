@@ -136,37 +136,51 @@ def remoteok(http: Http, opts: dict) -> list[Job]:
 _GOB_SENIORITY = {1: "No experience", 2: "Junior", 3: "Semi Senior", 4: "Senior", 5: "Expert"}
 
 
+def _gob_job(item: dict) -> Job:
+    a = item.get("attributes", {})
+    modality = a.get("remote_modality") or ""
+    countries = _join(a.get("countries"))
+    if modality == "fully_remote":
+        location = "Remote LATAM" if not a.get("remote_zone") else f"Remote {a.get('remote_zone')}"
+    else:
+        location = countries
+    company = (((a.get("company") or {}).get("data") or {}).get("attributes") or {}).get("name", "")
+    sen_id = (((a.get("seniority") or {}).get("data")) or {}).get("id")
+    desc = " ".join(str(a.get(k) or "") for k in ("description", "functions", "desirable", "benefits"))
+    return Job(
+        source="getonbrd", title=a.get("title", ""), company=company,
+        url=(item.get("links") or {}).get("public_url", ""), location=location,
+        description=desc, published_at=_ts(a.get("published_at")),
+        salary_min=_num(a.get("min_salary")), salary_max=_num(a.get("max_salary")),
+        salary_currency="USD", salary_period="month",
+        seniority_hint=_GOB_SENIORITY.get(sen_id, ""), language=a.get("lang") or "",
+        remote=modality in ("fully_remote", "remote_local"),
+    )
+
+
+def _gob_items(http: Http, url: str, pages: int, extra: dict | None = None):
+    for page in range(1, pages + 1):
+        items = http.get_json(url, {"per_page": 50, "page": page, "expand": '["company"]', **(extra or {})})
+        items = items.get("data", [])
+        yield from items
+        if len(items) < 50:
+            break
+
+
 def getonbrd(http: Http, opts: dict) -> list[Job]:
-    jobs = []
-    for category in opts.get("categories", ["data-science-analytics"]):
-        for page in range(1, opts.get("pages", 3) + 1):
-            data = http.get_json(
-                f"https://www.getonbrd.com/api/v0/categories/{category}/jobs",
-                {"per_page": 50, "page": page, "expand": '["company"]'},
-            )
-            items = data.get("data", [])
-            for item in items:
-                a = item.get("attributes", {})
-                modality = a.get("remote_modality") or ""
-                countries = _join(a.get("countries"))
-                if modality == "fully_remote":
-                    location = "Remote LATAM" if not a.get("remote_zone") else f"Remote {a.get('remote_zone')}"
-                else:
-                    location = countries
-                company = (((a.get("company") or {}).get("data") or {}).get("attributes") or {}).get("name", "")
-                sen_id = (((a.get("seniority") or {}).get("data")) or {}).get("id")
-                desc = " ".join(str(a.get(k) or "") for k in ("description", "functions", "desirable", "benefits"))
-                jobs.append(Job(
-                    source="getonbrd", title=a.get("title", ""), company=company,
-                    url=(item.get("links") or {}).get("public_url", ""), location=location,
-                    description=desc, published_at=_ts(a.get("published_at")),
-                    salary_min=_num(a.get("min_salary")), salary_max=_num(a.get("max_salary")),
-                    salary_currency="USD", salary_period="month",
-                    seniority_hint=_GOB_SENIORITY.get(sen_id, ""), language=a.get("lang") or "",
-                    remote=modality in ("fully_remote", "remote_local"),
-                ))
-            if len(items) < 50:
-                break
+    """Categories (paged) plus optional keyword searches, e.g. queries: [trainee, practicante]."""
+    jobs: list[Job] = []
+    seen: set[str] = set()
+    feeds = [(f"https://www.getonbrd.com/api/v0/categories/{c}/jobs", opts.get("pages", 3), None)
+             for c in opts.get("categories", ["data-science-analytics"])]
+    feeds += [("https://www.getonbrd.com/api/v0/search/jobs", 1, {"query": q}) for q in opts.get("queries", [])]
+    for url, pages, extra in feeds:
+        for item in _gob_items(http, url, pages, extra):
+            job = _gob_job(item)
+            key = str(item.get("id") or job.url)
+            if key not in seen:  # a keyword search can return postings already read from a category
+                seen.add(key)
+                jobs.append(job)
     return jobs
 
 
@@ -241,6 +255,37 @@ def workable(http: Http, opts: dict) -> list[Job]:
 
 # ---------------------------------------------------------------- optional scraper
 
+# ---------------------------------------------------------------- internship lists
+
+_SIMPLIFY_URL = "https://raw.githubusercontent.com/SimplifyJobs/{repo}/dev/.github/scripts/listings.json"
+
+
+def simplify(http: Http, opts: dict) -> list[Job]:
+    """Internship and new-grad lists curated by SimplifyJobs (public JSON behind their GitHub READMEs)."""
+    categories = set(opts.get("categories", ["AI/ML/Data"]))
+    jobs = []
+    for repo in opts.get("lists", ["Summer2027-Internships"]):
+        level = "New grad" if "new-grad" in repo.lower() else "Internship"
+        for item in http.get_json(_SIMPLIFY_URL.format(repo=repo)) or []:
+            if not item.get("active") or not item.get("is_visible", True):
+                continue
+            if categories and item.get("category") not in categories:
+                continue
+            locations = [str(loc) for loc in item.get("locations") or []]
+            remote = any("remote" in loc.lower() for loc in locations)
+            if opts.get("remote_only", True) and not remote:
+                continue
+            details = {"Terms": item.get("terms"), "Degrees": item.get("degrees"),
+                       "Sponsorship": item.get("sponsorship")}
+            jobs.append(Job(
+                source="simplify", title=item.get("title", ""), company=item.get("company_name", ""),
+                url=item.get("url", ""), location=", ".join(locations),
+                description=". ".join(f"{k}: {_join(v)}" for k, v in details.items() if v),
+                published_at=_ts(item.get("date_posted")), seniority_hint=level, remote=remote,
+            ))
+    return jobs
+
+
 def jobspy(http: Http, opts: dict) -> list[Job]:
     """LinkedIn/Indeed via python-jobspy. Disabled by default: scraping may break site ToS."""
     try:
@@ -269,5 +314,5 @@ def jobspy(http: Http, opts: dict) -> list[Job]:
 SOURCES: dict[str, Callable[[Http, dict], list[Job]]] = {
     "remotive": remotive, "jobicy": jobicy, "himalayas": himalayas, "remoteok": remoteok,
     "getonbrd": getonbrd, "greenhouse": greenhouse, "lever": lever, "ashby": ashby, "workable": workable,
-    "jobspy": jobspy,
+    "simplify": simplify, "jobspy": jobspy,
 }
