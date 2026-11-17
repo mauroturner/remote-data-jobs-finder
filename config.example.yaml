@@ -1,0 +1,62 @@
+# Copy to config.yaml (git-ignored) and fill in YOUR profile. Never commit config.yaml.
+# All patterns are case-insensitive Python regular expressions.
+
+profile:
+  # skill regex -> weight. Matched on word boundaries against title + description.
+  skills:
+    python: 3
+    sql: 3
+  match_saturation: 0.35   # fraction of total skill weight that already counts as a full match
+
+filters:
+  max_age_days: 30
+  title_include: ['\bdata\b', 'analytics', 'machine learning', '\bML\b', '\bAI\b']
+  title_exclude: ['sales', 'recruit']
+  seniority:
+    accept: ['junior', '\bjr\b', '\bmid\b', 'semi.?senior', '\bssr\b']
+    reject_title: ['(?<!semi )(?<!semi-)(?<!semi)\bsenior\b', '\bsr\.?\b', '\blead\b', '\bprincipal\b', '\bstaff\b']
+    reject_hint: ['^\s*senior', 'expert', 'lead']   # anchored so "Semi Senior" is not rejected
+    max_years_required: 5
+  location:
+    require_remote: true
+    allowed: ['worldwide', 'anywhere']          # region names you can legally work from
+    preferred: []                               # subset of allowed that earns a bonus
+    neutral: ['^\s*(fully\s+)?remote\s*$']      # location strings that say nothing about region
+    blocked_phrases: ['\b(US|USA)\s*only']
+  salary:
+    min_monthly_usd: 0            # postings whose max is below this are dropped
+    target_max_monthly_usd: 0     # above this the posting is flagged "ask-for-more"
+    keep_unknown: true            # keep postings without salary (flagged)
+    hours_per_month: 160
+    fx_to_usd: {USD: 1.0, EUR: 1.08, GBP: 1.27, CAD: 0.72}   # approximate, update as needed
+  language:
+    english_demanding: ['native english', 'fluent (in )?english', '\bC1\b', '\bC2\b']
+    reject_english_demanding: false   # true = drop instead of penalize
+
+scoring:   # relative weights
+  skills: 40
+  seniority: 15
+  salary: 15
+  location: 15
+  language: 15
+
+sources:
+  remotive:   {enabled: true, categories: [data, artificial-intelligence]}
+  jobicy:     {enabled: true, industry: data-science, geos: [null, latam, argentina]}
+  himalayas:  {enabled: true, pages: 3, queries: [data analyst, data scientist, data engineer, machine learning, analytics engineer, business intelligence]}
+  remoteok:   {enabled: true, tags: [data, analyst, machine-learning]}
+  getonbrd:   {enabled: true, categories: [data-science-analytics, machine-learning-ai], pages: 3}
+  # Company portals (see README "Company career portals"). Slug = last part of the careers URL.
+  greenhouse: {enabled: true, companies: [gitlab, wizeline, canonical, grafanalabs]}   # job-boards.greenhouse.io/<slug>
+  lever:      {enabled: true, companies: [toptal]}                                     # jobs.lever.co/<slug>
+  ashby:      {enabled: true, companies: [supabase, posthog, n8n, airbyte]}            # jobs.ashbyhq.com/<slug>
+  jobspy:     {enabled: false}   # LinkedIn/Indeed scraping: may violate their ToS, off by default
+
+http:
+  user_agent: job-finder/0.1
+  timeout: 20
+
+output:
+  dir: output
+  top_n: 40
+  min_score: 0

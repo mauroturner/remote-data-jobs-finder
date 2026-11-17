@@ -1,0 +1,26 @@
+# ---- Personal data: never commit ----
+# Your real profile and filters (only config.example.yaml is versioned)
+config.yaml
+config.*.yaml
+!config.example.yaml
+*.local.yaml
+.env
+.env.*
+
+# Generated reports (job lists derived from your profile)
+output/
+*.csv
+
+# CVs and personal documents
+*.pdf
+*.doc
+*.docx
+cv/
+resume/
+
+# ---- Python ----
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
